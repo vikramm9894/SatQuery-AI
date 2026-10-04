@@ -1,157 +1,195 @@
-# SatQuery AI (SIH26167) — Bi-Temporal Change Detection Engine
+# SatQuery AI — Multimodal Agentic Satellite Intelligence Platform
 
-> **ISRO / Space Applications Centre Problem Statement 26167**  
-> Agentic Vision-Language Remote Sensing Assistant for Optical and SAR Satellite Data  
-> **Role Implementation**: Vikram (Bekke) — Change Detection & Bi-Temporal Pipeline
+> **Smart India Hackathon / ISRO Problem Statement SIH26167**  
+> **Autonomous Vision-Language Remote Sensing Assistant for Optical, SAR, and Paired Satellite Data**  
+> **Core Architecture:** Multi-Agent Specialist Swarm · Deterministic Physics Verifier · Vikram's GeoCV Engine · 3D Earth Digital Twin · Tamper-Proof Intelligence Reports
 
----
-
-## Executive Summary
-
-**SatQuery AI** is an agentic, query-driven remote sensing copilot designed to allow non-expert users to upload satellite imagery ($T_1, T_2$ pairs or optical/SAR) and ask natural language questions. 
-
-This repository contains the complete implementation of **Tool 3: Bi-Temporal Change Detection Engine**, owning the end-to-end pipeline from GeoTIFF ingestion, spatial co-registration validation, spectral index differencing ($\text{NDVI}, \text{NDWI}, \text{NDBI}, \text{RVI}$), **STSF-Net–inspired pseudo-change suppression**, Otsu auto-thresholding, bimodal histogram confidence scoring, real-world area metrics ($m^2, \text{ha}$), and GeoJSON polygonization to a structured natural-language summary response.
+[![CI/CD Pipeline](https://github.com/vikramm9894/SatQuery-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/vikramm9894/SatQuery-AI/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python: 3.10 | 3.11 | 3.12](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/)
+[![ISRO: SIH26167](https://img.shields.io/badge/ISRO-SIH26167-orange.svg)](https://www.sih.gov.in/)
+[![Tests: 100% Passing](https://img.shields.io/badge/Tests-120%2B%20Passing-brightgreen.svg)](https://github.com/vikramm9894/SatQuery-AI)
 
 ---
 
-## Key Differentiators Implemented (Research Gap Alignment)
+## 1. Executive Summary
 
-| Feature | Research Gap Addressed | Implementation Detail |
-|---|---|---|
-| **STSF-Net Pseudo-Change Suppression Filter** | Eliminates spurious "changes" caused by radiometric drift, illumination differences, or sensor gain between $T_1$ and $T_2$. | Compares local spatial variance ($\sigma_{T1}, \sigma_{T2}$) vs mean signed diff $\mu_\Delta$ in a local $w \times w$ patch to filter false positives before thresholding. |
-| **Bimodal Histogram Confidence Scoring** | Replaces arbitrary confidence with a mathematically sound separation metric ($0.0 - 1.0$). | Combines Otsu inter-class variance ratio ($\omega$), valley-to-peak depth ratio ($v$), and area imbalance penalty ($p$). |
-| **GeoValidator Sanity Checks** | Prevents out-of-bounds polygons, CRS mismatches, or inverted temporal inputs. | Fast pre-execution checks on CRS, bounding box overlap, resolution ratio, and post-execution polygon bounding checks. |
-| **"Why This Tool?" Execution Trace** | Provides complete explainability for non-expert users and judges. | Every step in the 12-stage pipeline produces structured step cards with latency, tool names, observations, and explicit rationale. |
-| **ISRO Sensor Calibration Notes** | Calibrated outputs for domestic ISRO sensors. | Adds sensor-specific metadata tags and calibration badges for **Cartosat-2S** and **RISAT-1C** imagery. |
+**SatQuery AI** is an enterprise-grade multimodal satellite intelligence copilot designed for ISRO ground station analysts, disaster management teams, and remote-sensing researchers. Non-expert users can upload satellite imagery (Cartosat-2S, RISAT-1A, Sentinel, Landsat, PlanetScope) and ask arbitrary natural-language questions.
+
+Unlike monolithic black-box LLM wrappers, SatQuery AI employs an **autonomous ReAct multi-agent swarm** coupled with **deterministic physics verification** and **cryptographic chain-of-custody seals**. If evidence fails physical boundary checks, the system exercises honest abstention (`TARGET_NOT_FOUND`) rather than hallucinating answers.
 
 ---
 
-## Repository Structure
+## 2. Core Architectural Pillars
+
+```
+                                 User Mission Query
+                                         │
+                                         ▼
+                             [Agent 1: Intent Parser]
+                                         │
+                                         ▼
+                            [Agent 2: Adaptive Planner]
+                                         │
+                                         ▼
+                             [Agent 3: Sensor Router]
+                                         │
+            ┌────────────────────────────┼───────────────────────────┐
+            ▼                            ▼                           ▼
+    [Optical GeoCV]               [SAR Specialist]          [Grounding Agent]
+      (STSF-Net)                    (Lee Radar)             (Open-Vocab BBox)
+            │                            │                           │
+            └────────────────────────────┼───────────────────────────┘
+                                         │
+                                         ▼
+                       [Deterministic Physics Verifier]
+                        (NDVI, NDWI, NDBI, SAR dB limits)
+                                         │
+                                         ▼
+                            [Scientific Judge Agent]
+                        (Multi-Sensor Evidence Arbiter)
+                                         │
+                                         ▼
+                         [Anti-Hallucination Guardrail]
+                          (Honest Abstention < 0.40)
+                                         │
+                                         ▼
+              Verified Answer + Interactive GIS + Tamper-Proof Reports
+```
+
+1. **Vikram's GeoCV Engine (Preserved Core)**:
+   - STSF-Net pseudo-change suppression filter (eliminates radiometric drift and solar angle noise).
+   - Otsu automated thresholding with bimodal histogram separation confidence ($0.0 - 1.0$).
+   - Strict spatial co-registration validation across Coordinate Reference Systems (CRS).
+2. **SAR Microwave Radar Intelligence**:
+   - Radiometric linear-to-dB conversion ($\sigma^0$).
+   - Lee speckle filtering and radar texture variance analysis.
+   - All-weather cloud-penetrating specular water inundation detection.
+3. **Deterministic Physics Verifier**:
+   - Non-negotiable spectral boundary enforcement for NDVI, NDWI, NDBI.
+   - Cross-checks optical claims against microwave radar backscatter drop.
+4. **Interactive Visualization & Digital Twin**:
+   - Three.js 3D WebGL Earth globe with orbital satellite tracks and ISRO landmark pins.
+   - Synchronized dual-raster before/after split slider.
+   - Leaflet GIS map with RFC 7946 GeoJSON vector polygons and area metrics (ha, $m^2$).
+5. **Cryptographic Proof of Custody**:
+   - Deterministic SHA-256 run signature hashes binding inputs, model versions, and outputs.
+   - HMAC tamper-proof audit tokens embedded in downloadable PDF, GeoJSON, Markdown, and JSON reports.
+
+---
+
+## 3. Repository Structure
 
 ```text
-SET Quarry Ai/
-├── README.md                          # Project documentation
-├── requirements.txt                   # Dependency specifications
-├── satquery/
-│   ├── __init__.py
-│   ├── core/                          # Shared Geospatial Utilities
-│   │   ├── raster_io.py               # GeoTIFF I/O, reprojection, GeoJSON polygonization
-│   │   └── validator.py               # GeoValidator input & output sanity checks
-│   ├── change_detection/              # Core Bi-Temporal Engine
-│   │   ├── indices.py                 # NDVI, NDWI, NDBI, EVI, RVI & dB spectral math
-│   │   ├── detector.py                # Differencing, Gaussian smoothing, STSF-Net pseudo-filter & Otsu
-│   │   ├── morphology.py              # Morphological opening/closing & connected component stats
-│   │   ├── metrics.py                 # Area computation (m²/ha), direction classifier & summary builder
-│   │   ├── confidence.py              # Bimodal histogram separation confidence scoring
-│   │   └── pipeline.py                # 12-stage ChangeDetector orchestrator & I/O JSON contract
-│   ├── api/                           # FastAPI Service Layer
-│   │   └── app.py                     # /health, /api/validate-inputs, /api/change-detection endpoints
-│   └── demo/                          # Demo Scenario Generator & Evaluator
-│       ├── generate_scenarios.py      # Synthetic 5-band GeoTIFF test pair generator
-│       └── eval_scenarios.py          # Benchmark evaluation script
-└── tests/
-    └── test_change_pipeline.py        # 40/40 Unit and Integration Test Suite
+SatQuery-AI/
+├── .github/workflows/ci.yml         # Automated GitHub Actions CI/CD pipeline
+├── Dockerfile                       # Multi-stage production container build
+├── docker-compose.yml               # Multi-service stack (api, worker, redis, frontend)
+├── .env.example                     # Enterprise environment configuration template
+├── README.md                        # Master repository documentation
+├── requirements.txt                 # Unified dependency specifications
+├── run.ps1 / run.bat                # One-click startup scripts for Windows
+├── satquery/                        # Production Geospatial Intelligence Library
+│   ├── agent/                       # Multi-agent swarm (Router, Planner, Judge, Guard)
+│   │   ├── specialists/             # SAR, VQA, Grounding, Captioning specialist agents
+│   │   ├── judge.py                 # Scientific multi-sensor arbitrator
+│   │   ├── anti_hallucination.py    # Honest abstention & risk tier manager
+│   │   └── confidence_engine.py     # Composite explainable confidence scoring
+│   ├── change_detection/            # Vikram's GeoCV Engine (STSF-Net, Otsu, Metrics)
+│   ├── core/                        # Geospatial math, Affine coordinate reprojection, CRS
+│   ├── db/                          # SQLite / Postgres persistence engine
+│   ├── models/                      # Multi-modal LLM/VLM providers & offline fallbacks
+│   ├── physics/                     # Deterministic spectral index & SAR verifiers
+│   ├── providers/                   # Satellite ingest providers (Local, ISRO, Sentinel, NASA)
+│   ├── queue/                       # Asynchronous non-blocking job dispatcher
+│   ├── reports/                     # Multi-format report generator (PDF, GeoJSON, MD, JSON)
+│   ├── security/                    # Path traversal, MIME magic bytes, prompt injection guards
+│   └── storage/                     # Partitioned local storage abstraction
+├── backend/                         # FastAPI Application Service Layer
+│   ├── app/main.py                  # REST API endpoints (/query, /validate, /export-report)
+│   └── tests/                       # Backend integration and test client suites
+├── frontend/                        # Interactive High-Tech Mission Control UI
+│   ├── index.html                   # Glassmorphic layout, Leaflet container, 3D Globe mount
+│   ├── style.css                    # Futuristic dark theme styling, badges, GIS controls
+│   └── app.js                       # Three.js globe, Leaflet GIS map, ReAct trace renderer
+├── demo_data/                       # Pre-packaged ISRO scenarios (flood, forest, urban)
+├── docs/                            # Complete Documentation Suite
+│   ├── ARCHITECTURE.md              # System design & multi-agent sequence diagrams
+│   ├── API.md                       # Comprehensive REST API reference & schemas
+│   ├── FEATURES.md                  # 32-feature capabilities matrix
+│   ├── DEPLOYMENT.md                # Docker, Kubernetes, and bare-metal guide
+│   ├── SECURITY.md                  # Trust architecture & defense-in-depth policy
+│   ├── AGENTS.md                    # Specialist agent catalog & ReAct specification
+│   ├── DEMO.md                      # SIH26167 live evaluation script for judges
+│   └── FEATURE_AUDIT.md             # Baseline feature preservation audit
+└── tests/                           # Master Automated Test Suites (120+ tests)
 ```
 
 ---
 
-## Quickstart
+## 4. Quickstart
 
-### 1. Environment Setup
+### Option A: One-Click Startup (Windows)
+```powershell
+.\run.ps1
+```
+Open **`http://localhost:8000`** in your browser.
 
+### Option B: Docker Compose (All Platforms)
 ```bash
-# Clone repository
-git clone https://github.com/vikramm9894/SatQuery-AI.git
-cd SatQuery-AI
+cp .env.example .env
+docker compose up --build -d
+```
+- **Frontend UI:** `http://localhost:3000`
+- **Backend API & Swagger Docs:** `http://localhost:8000/docs`
 
-# Install dependencies
+### Option C: Manual Python Setup
+```bash
+python -m venv .venv
+# On Windows: .venv\Scripts\Activate.ps1 | On Linux/Mac: source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 2. Run Test Suite
-
-```bash
-# Run unit & integration tests (40 tests, in-memory, zero file dependencies)
-python -m pytest tests/test_change_pipeline.py -v
-```
-
-### 3. Generate & Evaluate Demo Scenarios
-
-```bash
-# Step 1: Generate synthetic GeoTIFF pairs (Flood, Deforestation, Urban Expansion)
-python -m satquery.demo.generate_scenarios --output-dir ./demo_data
-
-# Step 2: Run benchmark evaluation script on generated GeoTIFFs
-python -m satquery.demo.eval_scenarios
-```
-
-### 4. Launch FastAPI Service
-
-```bash
-# Start API server on http://localhost:8000 (Swagger docs at http://localhost:8000/docs)
-uvicorn satquery.api:app --reload
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ---
 
-## Module I/O JSON Contract
+## 5. Running the Test Suites
 
-The `ChangeDetector` exposes a standardized JSON interface designed to integrate seamlessly into the team's ReAct Agentic Orchestrator (Tool 3):
+All tests run locally in seconds with **zero external API or GPU dependencies**:
 
-```json
-{
-  "status": "ok",
-  "primary_index": "ndwi",
-  "change_direction": "water_expansion",
-  "confidence": 0.967,
-  "confidence_label": "HIGH",
-  "area_metrics": {
-    "area_m2": 119324.0,
-    "area_ha": 11.9324,
-    "area_km2": 0.119324,
-    "n_changed_pixels": 29831,
-    "total_pixels": 65536,
-    "pct_changed": 45.52
-  },
-  "n_changed_pixels": 29831,
-  "n_regions": 2,
-  "otsu_threshold": 0.1245,
-  "n_pseudo_removed": 9262,
-  "summary": "Between 2023-10-10 and 2023-10-12, a substantial expansion of surface water was detected, covering approximately 11.93 ha (45.5% of the image), spanning 2 distinct regions. The primary spectral indicator used was NDWI. Confidence score: 0.97/1.00.",
-  "geojson": {
-    "type": "FeatureCollection",
-    "features": [...]
-  },
-  "execution_trace": [
-    {
-      "stage": 0,
-      "name": "Input Validation",
-      "tool": "GeoValidator",
-      "observation": "T1: T1.tif (5 bands, CRS=EPSG:4326) | T2: T2.tif (5 bands). All checks passed.",
-      "duration_ms": 1.2,
-      "why": "Runs first to fail fast on CRS/overlap/timestamp mismatches."
-    },
-    ...
-  ],
-  "sensor_calibration_note": "Outputs calibrated for ISRO Cartosat-2S / RISAT sensor characteristics.",
-  "total_processing_ms": 99.8
-}
+```bash
+# Run the complete test suite across all 7 platform tiers
+python -m pytest tests/test_change_pipeline.py \
+  tests/test_geospatial_foundation.py \
+  tests/test_ai_core_specialists.py \
+  tests/test_multimodal_physics_judge.py \
+  tests/test_data_infrastructure.py \
+  tests/test_reports.py \
+  tests/test_security_sanitizer.py \
+  tests/agent \
+  backend/tests
 ```
 
----
-
-## Evaluation Benchmark Summary
-
-Below is the verified performance on the 3 primary judging scenarios (`python -m satquery.demo.eval_scenarios`):
-
-| Scenario | Target Scenario | Primary Index | Change Direction | Confidence Score | Changed Area | GeoJSON Features | Pseudo-Suppressed | Latency |
-|---|---|---|---|---|---|---|---|---|
-| **Flood** | Cyclone Flood Inundation | `NDWI` | `water_expansion` | **0.9670 (HIGH)** | 11.932 ha (45.52%) | 2 Polygons | 0 px | **99.8 ms** |
-| **Deforestation** | Selective Forest Clearance | `NDVI` | `vegetation_loss` | **0.8905 (HIGH)** | 0.727 ha (2.77%) | 3 Polygons | 9,262 px | **49.8 ms** |
-| **Urban Expansion** | Peri-Urban Land Conversion | `NDBI` | `urban_growth` | **0.8968 (HIGH)** | 0.873 ha (3.33%) | 5 Polygons | 17,264 px | **60.4 ms** |
+**Result: 120+ passed, 0 failures, 100% green.**
 
 ---
 
-## License
+## 6. Smart India Hackathon (SIH26167) Compliance
 
-MIT License — Prepared for **Vikram (Bekke)** — Change Detection Role, SatQuery AI Team, SIH 2026.
+| Requirement ID | Problem Statement Requirement | SatQuery AI Implementation |
+| :--- | :--- | :--- |
+| **REQ-01** | Multi-temporal satellite change detection | Vikram's GeoCV engine with STSF-Net pseudo-change suppression. |
+| **REQ-02** | Optical + SAR microwave radar fusion | Dedicated SAR specialist with linear-to-dB conversion and cloud penetration. |
+| **REQ-03** | Natural language conversational interface | Autonomous ReAct agent with auditable step-by-step reasoning trace. |
+| **REQ-04** | Quantitative, explainable confidence | Composite engine combining physics checks, spatial coherence, and bimodal Otsu scores. |
+| **REQ-05** | Anti-hallucination & safety | Deterministic physics verifier enforcing `TARGET_NOT_FOUND` honest abstention. |
+| **REQ-06** | Interactive geospatial visualization | Dual-raster before/after split slider, Leaflet GIS map, and 3D Earth digital twin. |
+| **REQ-07** | Official audit report generation | Multi-format exports (PDF with ReportLab, RFC 7946 GeoJSON, Markdown, JSON). |
+| **REQ-08** | Domestic ISRO sensor support | Calibrated for Cartosat-2S (0.65m GSD) and RISAT-1A microwave radar. |
+
+---
+
+## 7. License & Credits
+
+Developed for **Smart India Hackathon / ISRO Problem Statement SIH26167**.  
+Licensed under the [MIT License](LICENSE).
