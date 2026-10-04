@@ -213,6 +213,12 @@ class SARSpecialist(BaseSpecialist):
         )
 
 
+from satquery.agent.specialists.sar import SARAnalysisSpecialist
+from satquery.agent.specialists.vqa import VQASpecialist
+from satquery.agent.specialists.captioning import SceneCaptioningSpecialist
+from satquery.agent.specialists.grounding import GroundingSpecialist
+
+
 def register_default_specialists():
     """Populates global registry with standard specialists."""
     registry.register(
@@ -229,6 +235,27 @@ def register_default_specialists():
         SARSpecialist(),
         hardware_tier="cpu_quantized",
         implementation_type="real_model"
+    )
+    # Register production specialist implementations
+    registry.register(
+        SARAnalysisSpecialist(),
+        hardware_tier="cpu_quantized",
+        implementation_type="classical_algorithm"
+    )
+    registry.register(
+        VQASpecialist(),
+        hardware_tier="cpu_quantized",
+        implementation_type="domain_adapted_model"
+    )
+    registry.register(
+        SceneCaptioningSpecialist(),
+        hardware_tier="cpu_quantized",
+        implementation_type="domain_adapted_model"
+    )
+    registry.register(
+        GroundingSpecialist(),
+        hardware_tier="cpu_quantized",
+        implementation_type="domain_adapted_model"
     )
 
 

@@ -31,13 +31,21 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Semantic change labels
+# Semantic change labels (12 Core Classes + Aliases)
 ChangeLabel = Literal[
     "vegetation_loss",
     "vegetation_gain",
     "water_expansion",
-    "water_contraction",
+    "water_reduction",
+    "water_contraction",  # Backward-compatible alias for water_reduction
     "urban_growth",
+    "urban_loss",
+    "bare_land_change",
+    "construction",
+    "deforestation",
+    "flooding",
+    "possible_damage",
+    "unknown_change",
     "sar_change",
     "mixed_change",
     "no_change",
@@ -292,8 +300,16 @@ _DIRECTION_DESCRIPTIONS: dict[str, str] = {
     "vegetation_loss":    "significant vegetation loss was detected",
     "vegetation_gain":    "significant vegetation gain (or regrowth) was detected",
     "water_expansion":    "a substantial expansion of surface water was detected",
+    "water_reduction":    "a significant reduction in surface water extent was detected",
     "water_contraction":  "a significant reduction in surface water extent was detected",
     "urban_growth":       "new built-up or impervious surface development was detected",
+    "urban_loss":         "a reduction or clearing of urban / built-up structures was detected",
+    "bare_land_change":   "a transition involving bare soil or cleared land was detected",
+    "construction":       "active construction or earthworks were detected",
+    "deforestation":      "severe forest clearance / deforestation was detected",
+    "flooding":           "inundation / flood expansion was confirmed",
+    "possible_damage":    "surface structural damage was indicated by spectral and backscatter disruption",
+    "unknown_change":     "unclassified surface alteration was detected",
     "sar_change":         "a change in SAR backscatter consistent with ground-surface alteration was detected",
     "mixed_change":       "conflicting spectral signals suggest mixed land-cover change",
     "no_change":          "no significant change was detected within the analysed area",
