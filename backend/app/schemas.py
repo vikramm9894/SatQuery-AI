@@ -65,6 +65,7 @@ class ImageMeta(BaseModel):
     sensor_type: Literal["optical", "sar", "multispectral", "unknown"]
     timestamp: str | None = None
     checksum_sha256: str
+    preview_url: str | None = None
 
 class ValidationResult(BaseModel):
     session_id: str
@@ -87,3 +88,8 @@ class ToolInfo(BaseModel):
 class ExportReportRequest(BaseModel):
     session_id: str
     query_response: QueryResponse | None = None
+
+class DemoScenarioRequest(BaseModel):
+    session_id: str
+    scenario_id: Literal["flood", "deforestation", "urban", "cartosat_sar"]
+

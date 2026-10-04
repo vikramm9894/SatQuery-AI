@@ -1,171 +1,69 @@
 /**
- * SatQuery AI — Frontend Application Logic
- * Replicated 3D Earth Globe & Interactive Landing Page (from Aryabhata-Cartographers)
- * + Agentic Remote-Sensing Intelligence Copilot & Change Detection Console
+ * SatQuery AI — Frontend Application (Fixed)
+ * Features:
+ *  - Upload images → live preview on canvas in map panel
+ *  - Paste image via Ctrl+V directly into query flow
+ *  - Drag & drop onto dropzone
+ *  - Thumbnail row after upload
+ *  - AI bounding boxes rendered as SVG overlay on actual image
+ *  - Before/After slider for bi-temporal comparison
+ *  - Full backend API integration with smart simulation fallback
  */
 
 // ==========================================================================
-// 1. CONTINENTS GEOMETRY DATA (for Procedural Canvas Fallback)
+// 1. EARTH TEXTURE GENERATOR
 // ==========================================================================
 const CONTINENTS = {
-    northAmerica: [
-        [-168, 65], [-150, 70], [-120, 70], [-80, 75], [-60, 75], [-50, 60], [-60, 50],
-        [-80, 40], [-80, 25], [-100, 15], [-85, 10], [-80, 9], [-90, 14], [-100, 20],
-        [-105, 20], [-110, 30], [-120, 35], [-125, 48], [-140, 60], [-160, 60]
-    ],
-    greenland: [
-        [-70, 75], [-60, 83], [-20, 83], [-20, 70], [-40, 60], [-50, 60]
-    ],
-    southAmerica: [
-        [-80, 9], [-72, 11], [-60, 10], [-50, -5], [-35, -7], [-40, -22], [-60, -35],
-        [-70, -53], [-75, -53], [-72, -40], [-70, -30], [-75, -20], [-80, -5], [-80, 5]
-    ],
-    africa: [
-        [-17, 32], [-5, 36], [10, 37], [25, 32], [33, 31], [34, 27], [43, 12],
-        [51, 11], [46, -5], [38, -20], [35, -34], [20, -34], [12, -22], [8, 5],
-        [-15, 15], [-17, 20]
-    ],
-    madagascar: [
-        [48, -12], [50, -15], [47, -25], [43, -25], [44, -15]
-    ],
-    eurasia: [
-        [-9, 38], [0, 40], [10, 45], [20, 40], [30, 46], [40, 60], [60, 70], [80, 75],
-        [100, 77], [120, 76], [140, 70], [160, 70], [170, 66], [160, 50], [140, 40],
-        [120, 35], [110, 20], [108, 10], [100, 5], [96, 20], [90, 22], [80, 10],
-        [70, 20], [60, 25], [50, 13], [48, 30], [35, 31], [26, 39], [15, 37],
-        [5, 43], [-5, 43]
-    ],
-    india: [
-        [68, 24], [78, 22], [88, 22], [80, 8], [72, 15]
-    ],
-    scandinavia: [
-        [5, 60], [10, 70], [25, 71], [30, 60], [20, 55]
-    ],
-    greatBritain: [
-        [-5, 50], [-5, 58], [2, 58], [2, 50]
-    ],
-    japan: [
-        [130, 32], [135, 35], [140, 38], [142, 43], [145, 45], [140, 45]
-    ],
-    indonesia: [
-        [95, -5], [110, -7], [120, -8], [115, -3], [100, 0]
-    ],
-    australia: [
-        [113, -22], [120, -15], [135, -12], [142, -10], [146, -15], [150, -25],
-        [150, -35], [140, -38], [130, -35], [115, -34]
-    ],
-    tasmania: [
-        [145, -41], [148, -41], [148, -43], [145, -43]
-    ],
-    antarctica: [
-        [-180, -70], [180, -70], [180, -90], [-180, -90]
-    ]
+    northAmerica: [[-168,65],[-150,70],[-120,70],[-80,75],[-60,75],[-50,60],[-60,50],[-80,40],[-80,25],[-100,15],[-85,10],[-80,9],[-90,14],[-100,20],[-105,20],[-110,30],[-120,35],[-125,48],[-140,60],[-160,60]],
+    southAmerica: [[-80,9],[-72,11],[-60,10],[-50,-5],[-35,-7],[-40,-22],[-60,-35],[-70,-53],[-75,-53],[-72,-40],[-70,-30],[-75,-20],[-80,-5],[-80,5]],
+    africa: [[-17,32],[-5,36],[10,37],[25,32],[33,31],[34,27],[43,12],[51,11],[46,-5],[38,-20],[35,-34],[20,-34],[12,-22],[8,5],[-15,15],[-17,20]],
+    eurasia: [[-9,38],[0,40],[10,45],[20,40],[30,46],[40,60],[60,70],[80,75],[100,77],[120,76],[140,70],[160,70],[170,66],[160,50],[140,40],[120,35],[110,20],[108,10],[100,5],[96,20],[90,22],[80,10],[70,20],[60,25],[50,13],[48,30],[35,31],[26,39],[15,37],[5,43],[-5,43]],
+    india: [[68,24],[78,22],[88,22],[80,8],[72,15]],
+    australia: [[113,-22],[120,-15],[135,-12],[142,-10],[146,-15],[150,-25],[150,-35],[140,-38],[130,-35],[115,-34]],
+    greenland: [[-70,75],[-60,83],[-20,83],[-20,70],[-40,60],[-50,60]],
+    antarctica: [[-180,-70],[180,-70],[180,-90],[-180,-90]]
 };
 
-// ==========================================================================
-// 2. PROCEDURAL CANVAS TEXTURE GENERATOR (Oceans, Continents, Specular, Lights)
-// ==========================================================================
 function createEarthTextures() {
-    const colorCanvas = document.createElement('canvas');
-    colorCanvas.width = 1024;
-    colorCanvas.height = 512;
-    const cCtx = colorCanvas.getContext('2d');
-
-    // Ocean deep blue radial/linear gradient
-    const oceanGrad = cCtx.createLinearGradient(0, 0, 0, 512);
-    oceanGrad.addColorStop(0, '#0a2347');
-    oceanGrad.addColorStop(1, '#020712');
-    cCtx.fillStyle = oceanGrad;
-    cCtx.fillRect(0, 0, 1024, 512);
-
-    // Specular Map Canvas (White for water, Black for land)
-    const specCanvas = document.createElement('canvas');
-    specCanvas.width = 1024;
-    specCanvas.height = 512;
-    const sCtx = specCanvas.getContext('2d');
-    sCtx.fillStyle = '#ffffff';
-    sCtx.fillRect(0, 0, 1024, 512);
-
-    // Emissive Map Canvas (City lights on night side)
-    const emissiveCanvas = document.createElement('canvas');
-    emissiveCanvas.width = 1024;
-    emissiveCanvas.height = 512;
-    const eCtx = emissiveCanvas.getContext('2d');
-    eCtx.fillStyle = '#000000';
-    eCtx.fillRect(0, 0, 1024, 512);
-
     const mapX = lon => (lon + 180) * (1024 / 360);
     const mapY = lat => (90 - lat) * (512 / 180);
-
-    // Draw Earth continents
-    Object.entries(CONTINENTS).forEach(([_, poly]) => {
+    const colorCanvas = document.createElement('canvas');
+    colorCanvas.width = 1024; colorCanvas.height = 512;
+    const cCtx = colorCanvas.getContext('2d');
+    const oceanGrad = cCtx.createLinearGradient(0, 0, 0, 512);
+    oceanGrad.addColorStop(0, '#0a2347'); oceanGrad.addColorStop(1, '#020712');
+    cCtx.fillStyle = oceanGrad; cCtx.fillRect(0, 0, 1024, 512);
+    const specCanvas = document.createElement('canvas');
+    specCanvas.width = 1024; specCanvas.height = 512;
+    const sCtx = specCanvas.getContext('2d');
+    sCtx.fillStyle = '#ffffff'; sCtx.fillRect(0, 0, 1024, 512);
+    const emissiveCanvas = document.createElement('canvas');
+    emissiveCanvas.width = 1024; emissiveCanvas.height = 512;
+    const eCtx = emissiveCanvas.getContext('2d');
+    eCtx.fillStyle = '#000000'; eCtx.fillRect(0, 0, 1024, 512);
+    Object.values(CONTINENTS).forEach(poly => {
         cCtx.beginPath();
-        poly.forEach(([lon, lat], idx) => {
-            const x = mapX(lon);
-            const y = mapY(lat);
-            if (idx === 0) cCtx.moveTo(x, y);
-            else cCtx.lineTo(x, y);
-        });
+        poly.forEach(([lon, lat], idx) => { const x = mapX(lon), y = mapY(lat); idx === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); });
         cCtx.closePath();
-
         const landGrad = cCtx.createLinearGradient(0, 0, 0, 512);
-        landGrad.addColorStop(0, '#15803d');    // Rich green
-        landGrad.addColorStop(0.7, '#166534');  // Mid green
-        landGrad.addColorStop(1, '#1e293b');    // Gray/brown mountains
-        cCtx.fillStyle = landGrad;
-        cCtx.fill();
-
-        cCtx.strokeStyle = '#22c55e';
-        cCtx.lineWidth = 1;
-        cCtx.stroke();
-
-        // Land in specular map
+        landGrad.addColorStop(0, '#15803d'); landGrad.addColorStop(0.7, '#166534'); landGrad.addColorStop(1, '#1e293b');
+        cCtx.fillStyle = landGrad; cCtx.fill();
+        cCtx.strokeStyle = '#22c55e'; cCtx.lineWidth = 1; cCtx.stroke();
         sCtx.beginPath();
-        poly.forEach(([lon, lat], idx) => {
-            const x = mapX(lon);
-            const y = mapY(lat);
-            if (idx === 0) sCtx.moveTo(x, y);
-            else sCtx.lineTo(x, y);
-        });
-        sCtx.closePath();
-        sCtx.fillStyle = '#000000';
-        sCtx.fill();
-
-        // City lights on emissive map
+        poly.forEach(([lon, lat], idx) => { const x = mapX(lon), y = mapY(lat); idx === 0 ? sCtx.moveTo(x, y) : sCtx.lineTo(x, y); });
+        sCtx.closePath(); sCtx.fillStyle = '#000000'; sCtx.fill();
         eCtx.fillStyle = '#fde047';
         let minX = 1024, maxX = 0, minY = 512, maxY = 0;
-        poly.forEach(([lon, lat]) => {
-            const x = mapX(lon);
-            const y = mapY(lat);
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-        });
-        for (let i = 0; i < 24; i++) {
-            const rx = minX + Math.random() * (maxX - minX);
-            const ry = minY + Math.random() * (maxY - minY);
-            eCtx.beginPath();
-            eCtx.arc(rx, ry, 1 + Math.random() * 1.5, 0, Math.PI * 2);
-            eCtx.fill();
-        }
+        poly.forEach(([lon, lat]) => { const x = mapX(lon), y = mapY(lat); if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; });
+        for (let i = 0; i < 24; i++) { const rx = minX + Math.random() * (maxX - minX), ry = minY + Math.random() * (maxY - minY); eCtx.beginPath(); eCtx.arc(rx, ry, 1 + Math.random() * 1.5, 0, Math.PI * 2); eCtx.fill(); }
     });
-
-    return {
-        colorMap: new THREE.CanvasTexture(colorCanvas),
-        specularMap: new THREE.CanvasTexture(specCanvas),
-        emissiveMap: new THREE.CanvasTexture(emissiveCanvas)
-    };
+    return { colorMap: new THREE.CanvasTexture(colorCanvas), specularMap: new THREE.CanvasTexture(specCanvas), emissiveMap: new THREE.CanvasTexture(emissiveCanvas) };
 }
 
 // ==========================================================================
-// 3. WEB AUDIO SYNTHESIZER (Ambient Drone & Futuristic Chimes)
+// 2. WEB AUDIO
 // ==========================================================================
-let audioCtx = null;
-let ambientOsc = null;
-let ambientGain = null;
-let audioOn = false;
-
+let audioCtx = null, ambientGain = null, audioOn = false;
 const audioToggleBtn = document.getElementById("audioToggleBtn");
 const audioDot = document.getElementById("audioDot");
 const audioLabel = document.getElementById("audioLabel");
@@ -173,680 +71,570 @@ const audioLabel = document.getElementById("audioLabel");
 function toggleAudio() {
     if (!audioCtx) {
         try {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AudioContextClass();
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(45, audioCtx.currentTime);
-
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(80, audioCtx.currentTime);
-
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(45, audioCtx.currentTime);
+            const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(80, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start();
-            ambientOsc = osc;
-            ambientGain = gain;
-            audioOn = true;
-            updateAudioUI(true);
+            osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); ambientGain = gain; audioOn = true; updateAudioUI(true);
         } catch (_) {}
     } else {
-        if (audioOn) {
-            ambientGain?.gain.setValueAtTime(0, audioCtx.currentTime);
-            audioOn = false;
-            updateAudioUI(false);
-        } else {
-            ambientGain?.gain.setValueAtTime(0.06, audioCtx.currentTime);
-            audioOn = true;
-            updateAudioUI(true);
-        }
+        if (audioOn) { ambientGain?.gain.setValueAtTime(0, audioCtx.currentTime); audioOn = false; updateAudioUI(false); }
+        else { ambientGain?.gain.setValueAtTime(0.06, audioCtx.currentTime); audioOn = true; updateAudioUI(true); }
     }
 }
-
-function updateAudioUI(isOn) {
-    if (isOn) {
-        audioDot.classList.add("active");
-        audioLabel.innerText = "AUDIO ON";
-    } else {
-        audioDot.classList.remove("active");
-        audioLabel.innerText = "AUDIO OFF";
-    }
-}
-
+function updateAudioUI(on) { audioDot.classList.toggle("active", on); audioLabel.innerText = on ? "AUDIO ON" : "AUDIO OFF"; }
 audioToggleBtn.addEventListener("click", toggleAudio);
 
-function playChime(freq, duration, type = 'sine', vol = 0.1) {
+function playChime(freq, dur, type = 'sine', vol = 0.1) {
     if (!audioCtx || !audioOn) return;
-    try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    } catch (_) {}
+    try { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime); g.gain.setValueAtTime(vol, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur); } catch (_) {}
 }
 
 // ==========================================================================
-// 4. THREE.JS 3D EARTH GLOBE SIMULATION
+// 3. THREE.JS GLOBE
 // ==========================================================================
 const globeMount = document.getElementById("globeMount");
-let scene, camera, renderer, earthMesh, cloudMesh, atmosphereMesh;
-let scrollPct = 0;
-let isZooming = false;
-
+let scene, camera, renderer, earthMesh, cloudMesh;
+let scrollPct = 0, isZooming = false;
 const currentPos = new THREE.Vector3(0, 0, 0);
-const currentScale = { val: 1.0 };
-const currentCamZ = { val: 10 };
+const currentScale = { val: 1.0 }, currentCamZ = { val: 10 };
 
 function initThreeGlobe() {
-    const width = globeMount.clientWidth || window.innerWidth;
-    const height = globeMount.clientHeight || window.innerHeight;
-
-    scene = new THREE.Scene();
-    scene.background = null;
-
-    camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
-    camera.position.z = 10;
-
+    const W = globeMount.clientWidth || window.innerWidth, H = globeMount.clientHeight || window.innerHeight;
+    scene = new THREE.Scene(); scene.background = null;
+    camera = new THREE.PerspectiveCamera(40, W / H, 0.1, 1000); camera.position.z = 10;
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     globeMount.appendChild(renderer.domElement);
-
-    // Deep space stars background (350 points)
-    const starsGeometry = new THREE.BufferGeometry();
-    const starsMaterial = new THREE.PointsMaterial({ color: 0x8892b0, size: 0.8, sizeAttenuation: true });
-    const starVertices = [];
-    for (let i = 0; i < 350; i++) {
-        const x = (Math.random() - 0.5) * 800;
-        const y = (Math.random() - 0.5) * 800;
-        const z = (Math.random() - 0.5) * 800;
-        starVertices.push(x, y, z);
-    }
-    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    const starField = new THREE.Points(starsGeometry, starsMaterial);
-    scene.add(starField);
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
-    scene.add(ambientLight);
-
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    sunLight.position.set(6, 4, 6);
-    scene.add(sunLight);
-
-    // Textures & Fallback
-    const localTextures = createEarthTextures();
-    let earthTexture = localTextures.colorMap;
-    let specularTexture = localTextures.specularMap;
-    let cloudTexture = null;
-
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.crossOrigin = 'anonymous';
-
-    textureLoader.load(
-        'textures/earth_atmos.jpg',
-        (loadedTex) => {
-            earthMesh.material.map = loadedTex;
-            earthMesh.material.needsUpdate = true;
-        },
-        undefined,
-        () => {
-            earthMesh.material.map = localTextures.colorMap;
-            earthMesh.material.roughnessMap = localTextures.specularMap;
-            earthMesh.material.emissiveMap = localTextures.emissiveMap;
-            earthMesh.material.emissive = new THREE.Color('#fac775');
-            earthMesh.material.emissiveIntensity = 0.85;
-            earthMesh.material.needsUpdate = true;
-        }
-    );
-
-    textureLoader.load('textures/earth_specular.jpg', (tex) => {
-        earthMesh.material.roughnessMap = tex;
-        earthMesh.material.needsUpdate = true;
-    });
-
-    textureLoader.load('textures/earth_clouds.png', (tex) => {
-        const cloudGeometry = new THREE.SphereGeometry(3.02, 64, 64);
-        const cloudMaterial = new THREE.MeshStandardMaterial({
-            map: tex,
-            transparent: true,
-            opacity: 0.35,
-            blending: THREE.NormalBlending
-        });
-        cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
-        scene.add(cloudMesh);
-    });
-
-    // Main Earth Mesh
-    const earthGeometry = new THREE.SphereGeometry(3, 64, 64);
-    const earthMaterial = new THREE.MeshStandardMaterial({
-        map: earthTexture,
-        roughnessMap: specularTexture,
-        roughness: 0.8,
-        metalness: 0.1
-    });
-    earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+    const sv = []; for (let i = 0; i < 350; i++) sv.push((Math.random()-.5)*800,(Math.random()-.5)*800,(Math.random()-.5)*800);
+    const starsGeo = new THREE.BufferGeometry(); starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
+    scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0x8892b0, size: 0.8, sizeAttenuation: true })));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(6, 4, 6); scene.add(sun);
+    const lt = createEarthTextures();
+    earthMesh = new THREE.Mesh(new THREE.SphereGeometry(3, 64, 64), new THREE.MeshStandardMaterial({ map: lt.colorMap, roughnessMap: lt.specularMap, roughness: 0.8, metalness: 0.1 }));
     scene.add(earthMesh);
-
-    // Glowing Atmosphere Shell (Cyan Glow #90e0ef)
-    const atmosphereGeometry = new THREE.SphereGeometry(3.28, 64, 64);
-    const atmosphereMaterial = new THREE.ShaderMaterial({
-        vertexShader: `
-            varying vec3 vNormal;
-            void main() {
-                vNormal = normalize(normalMatrix * normal);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            varying vec3 vNormal;
-            void main() {
-                float intensity = pow(0.72 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.8);
-                gl_FragColor = vec4(0.56, 0.88, 0.94, 1.0) * intensity;
-            }
-        `,
-        blending: THREE.AdditiveBlending,
-        side: THREE.BackSide,
-        transparent: true
-    });
-    atmosphereMesh = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-    scene.add(atmosphereMesh);
-
-    // Hotspot targets (pulsing electric orange markers on globe surface)
-    const hotPointGeometry = new THREE.SphereGeometry(0.045, 16, 16);
-    const hotPointMaterial = new THREE.MeshBasicMaterial({ color: 0xff7438 });
-    const hotspots = [
-        { lat: 19.076, lon: 72.877 }, // Mumbai
-        { lat: 51.507, lon: -0.127 }, // London
-        { lat: 40.712, lon: -74.006 }, // New York
-        { lat: 35.676, lon: 139.65 },  // Tokyo
-    ];
-    hotspots.forEach(c => {
-        const mesh = new THREE.Mesh(hotPointGeometry, hotPointMaterial);
-        const radLat = (c.lat * Math.PI) / 180;
-        const radLon = (c.lon * Math.PI) / 180;
-        const r = 3.015;
-        mesh.position.x = r * Math.cos(radLat) * Math.sin(radLon);
-        mesh.position.y = r * Math.sin(radLat);
-        mesh.position.z = r * Math.cos(radLat) * Math.cos(radLon);
-        earthMesh.add(mesh);
-    });
-
-    // Drag controls
-    let isDragging = false;
-    let prevMouseX = 0;
-    let prevMouseY = 0;
-
-    const onPointerDown = (e) => {
-        isDragging = true;
-        const pt = e.touches ? e.touches[0] : e;
-        prevMouseX = pt.clientX;
-        prevMouseY = pt.clientY;
-    };
-
-    const onPointerMove = (e) => {
-        if (!isDragging) return;
-        const pt = e.touches ? e.touches[0] : e;
-        const deltaX = pt.clientX - prevMouseX;
-        const deltaY = pt.clientY - prevMouseY;
-
-        earthMesh.rotation.y += deltaX * 0.003;
-        earthMesh.rotation.x += deltaY * 0.003;
-        if (cloudMesh) {
-            cloudMesh.rotation.y += deltaX * 0.003;
-            cloudMesh.rotation.x += deltaY * 0.003;
-        }
-
-        prevMouseX = pt.clientX;
-        prevMouseY = pt.clientY;
-    };
-
-    const onPointerUp = () => {
-        isDragging = false;
-    };
-
-    globeMount.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('mousemove', onPointerMove);
-    window.addEventListener('mouseup', onPointerUp);
-
-    globeMount.addEventListener('touchstart', onPointerDown, { passive: true });
-    window.addEventListener('touchmove', onPointerMove, { passive: true });
-    window.addEventListener('touchend', onPointerUp);
-
-    // Animation Loop
-    function animate() {
+    const tl = new THREE.TextureLoader(); tl.crossOrigin = 'anonymous';
+    tl.load('textures/earth_atmos.jpg', t => { earthMesh.material.map = t; earthMesh.material.needsUpdate = true; }, undefined, () => { earthMesh.material.emissiveMap = lt.emissiveMap; earthMesh.material.emissive = new THREE.Color('#fac775'); earthMesh.material.emissiveIntensity = 0.85; earthMesh.material.needsUpdate = true; });
+    tl.load('textures/earth_specular.jpg', t => { earthMesh.material.roughnessMap = t; earthMesh.material.needsUpdate = true; });
+    tl.load('textures/earth_clouds.png', t => { cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(3.02, 64, 64), new THREE.MeshStandardMaterial({ map: t, transparent: true, opacity: 0.35, blending: THREE.NormalBlending })); scene.add(cloudMesh); });
+    scene.add(new THREE.Mesh(new THREE.SphereGeometry(3.28, 64, 64), new THREE.ShaderMaterial({ vertexShader: `varying vec3 vNormal;void main(){vNormal=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`, fragmentShader: `varying vec3 vNormal;void main(){float i=pow(0.72-dot(vNormal,vec3(0,0,1)),2.8);gl_FragColor=vec4(0.56,0.88,0.94,1)*i;}`, blending: THREE.AdditiveBlending, side: THREE.BackSide, transparent: true })));
+    const hpGeo = new THREE.SphereGeometry(0.045, 16, 16), hpMat = new THREE.MeshBasicMaterial({ color: 0xff7438 });
+    [{lat:19.076,lon:72.877},{lat:51.507,lon:-0.127},{lat:40.712,lon:-74.006},{lat:35.676,lon:139.65}].forEach(c => { const m = new THREE.Mesh(hpGeo, hpMat), r = 3.015, rl = c.lat*Math.PI/180, rlo = c.lon*Math.PI/180; m.position.set(r*Math.cos(rl)*Math.sin(rlo), r*Math.sin(rl), r*Math.cos(rl)*Math.cos(rlo)); earthMesh.add(m); });
+    let isDragging = false, prevX = 0, prevY = 0;
+    globeMount.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+    window.addEventListener('mousemove', e => { if (!isDragging) return; earthMesh.rotation.y += (e.clientX-prevX)*0.003; earthMesh.rotation.x += (e.clientY-prevY)*0.003; if(cloudMesh){cloudMesh.rotation.y+=(e.clientX-prevX)*0.003;cloudMesh.rotation.x+=(e.clientY-prevY)*0.003;} prevX=e.clientX; prevY=e.clientY; });
+    window.addEventListener('mouseup', () => isDragging = false);
+    globeMount.addEventListener('touchstart', e => { isDragging=true; prevX=e.touches[0].clientX; prevY=e.touches[0].clientY; }, {passive:true});
+    window.addEventListener('touchmove', e => { if(!isDragging)return; earthMesh.rotation.y+=(e.touches[0].clientX-prevX)*0.003; earthMesh.rotation.x+=(e.touches[0].clientY-prevY)*0.003; if(cloudMesh){cloudMesh.rotation.y+=(e.touches[0].clientX-prevX)*0.003;cloudMesh.rotation.x+=(e.touches[0].clientY-prevY)*0.003;} prevX=e.touches[0].clientX; prevY=e.touches[0].clientY; }, {passive:true});
+    window.addEventListener('touchend', () => isDragging = false);
+    (function animate() {
         requestAnimationFrame(animate);
-
-        // GSAP-like Scroll Mapping
-        let targetX = 0;
-        let targetScale = 1.0;
-        let targetZ = 10;
-        let wire = false;
-
-        if (scrollPct < 0.25) {
-            // Phase 0: Intro (Centered)
-            targetX = 0;
-            targetScale = 1.0;
-            targetZ = 10;
-        } else if (scrollPct >= 0.25 && scrollPct < 0.55) {
-            // Phase 1: Satellite Input (Shifts Right)
-            const localPct = (scrollPct - 0.25) / 0.3;
-            targetX = 0.0 + localPct * 2.2;
-            targetScale = 1.0 - localPct * 0.15;
-            targetZ = 10.0 - localPct * 1.5;
-        } else if (scrollPct >= 0.55 && scrollPct < 0.85) {
-            // Phase 2: Deep Vision (Shifts Left, Wireframe)
-            const localPct = (scrollPct - 0.55) / 0.3;
-            targetX = 2.2 - localPct * 4.4;
-            targetScale = 0.85 + localPct * 0.2;
-            targetZ = 8.5 - localPct * 1.0;
-            wire = true;
-        } else {
-            // Phase 3: Criticality Scan (Centers)
-            const localPct = (scrollPct - 0.85) / 0.15;
-            targetX = -2.2 + localPct * 2.2;
-            targetScale = 1.05 - localPct * 0.05;
-            targetZ = 7.5 + localPct * 0.5;
-        }
-
-        // Smooth interpolation easing
-        currentPos.x += (targetX - currentPos.x) * 0.055;
-        currentScale.val += (targetScale - currentScale.val) * 0.055;
-        currentCamZ.val += (targetZ - currentCamZ.val) * 0.055;
-
-        // Apply transformations
-        earthMesh.position.x = currentPos.x;
-        earthMesh.scale.setScalar(currentScale.val);
-        camera.position.z = currentCamZ.val;
-        earthMesh.material.wireframe = wire;
-
-        if (cloudMesh) {
-            cloudMesh.position.x = currentPos.x;
-            cloudMesh.scale.setScalar(currentScale.val * 1.006);
-        }
-
-        if (!isDragging) {
-            earthMesh.rotation.y += 0.0012;
-            if (cloudMesh) {
-                cloudMesh.rotation.y += 0.0016;
-            }
-        }
-
-        // Zoom override during transition dive
-        if (isZooming) {
-            currentCamZ.val += (1.4 - currentCamZ.val) * 0.035;
-            camera.position.z = currentCamZ.val;
-        }
-
+        let tX=0,tScale=1,tZ=10,wire=false;
+        if(scrollPct<0.25){tX=0;tScale=1;tZ=10;}
+        else if(scrollPct<0.55){const lp=(scrollPct-0.25)/0.3;tX=lp*2.2;tScale=1-lp*0.15;tZ=10-lp*1.5;}
+        else if(scrollPct<0.85){const lp=(scrollPct-0.55)/0.3;tX=2.2-lp*4.4;tScale=0.85+lp*0.2;tZ=8.5-lp;wire=true;}
+        else{const lp=(scrollPct-0.85)/0.15;tX=-2.2+lp*2.2;tScale=1.05-lp*0.05;tZ=7.5+lp*0.5;}
+        currentPos.x+=(tX-currentPos.x)*0.055; currentScale.val+=(tScale-currentScale.val)*0.055; currentCamZ.val+=(tZ-currentCamZ.val)*0.055;
+        earthMesh.position.x=currentPos.x; earthMesh.scale.setScalar(currentScale.val); camera.position.z=currentCamZ.val; earthMesh.material.wireframe=wire;
+        if(cloudMesh){cloudMesh.position.x=currentPos.x;cloudMesh.scale.setScalar(currentScale.val*1.006);}
+        if(!isDragging){earthMesh.rotation.y+=0.0012;if(cloudMesh)cloudMesh.rotation.y+=0.0016;}
+        if(isZooming){currentCamZ.val+=(1.4-currentCamZ.val)*0.035;camera.position.z=currentCamZ.val;}
         renderer.render(scene, camera);
-    }
-    animate();
-
-    // Window Resize Handler
-    window.addEventListener('resize', () => {
-        const w = globeMount.clientWidth || window.innerWidth;
-        const h = globeMount.clientHeight || window.innerHeight;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
-    });
+    })();
+    window.addEventListener('resize', () => { const w=globeMount.clientWidth||window.innerWidth,h=globeMount.clientHeight||window.innerHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); });
 }
 
 // ==========================================================================
-// 5. SCROLL DRIVER & INTERACTIVE STORY PANELS
+// 4. SCROLL & PANELS
 // ==========================================================================
-const scrollDriver = document.getElementById("scrollDriver");
-const panel0 = document.getElementById("panel0");
-const panel1 = document.getElementById("panel1");
-const panel2 = document.getElementById("panel2");
-const panel3 = document.getElementById("panel3");
-const sysStatus = document.getElementById("sysStatus");
-
+const scrollDriver=document.getElementById("scrollDriver"),panel0=document.getElementById("panel0"),panel1=document.getElementById("panel1"),panel2=document.getElementById("panel2"),panel3=document.getElementById("panel3"),sysStatus=document.getElementById("sysStatus");
 scrollDriver.addEventListener("scroll", () => {
-    const sy = scrollDriver.scrollTop;
-    const maxScroll = scrollDriver.scrollHeight - window.innerHeight;
-    scrollPct = Math.max(0, Math.min(1, sy / (maxScroll || 1)));
-
-    // Calculate segment visibilities
-    const opacityP0 = Math.max(0, 1 - scrollPct / 0.18);
-    const opacityP1 = Math.max(0, Math.min(1, (scrollPct - 0.22) / 0.08)) * Math.max(0, 1 - (scrollPct - 0.48) / 0.08);
-    const opacityP2 = Math.max(0, Math.min(1, (scrollPct - 0.52) / 0.08)) * Math.max(0, 1 - (scrollPct - 0.78) / 0.08);
-    const opacityP3 = Math.max(0, Math.min(1, (scrollPct - 0.82) / 0.08));
-
-    panel0.style.opacity = opacityP0;
-    panel1.style.opacity = opacityP1;
-    panel2.style.opacity = opacityP2;
-    panel3.style.opacity = opacityP3;
-
-    panel0.style.pointerEvents = opacityP0 > 0.5 ? 'auto' : 'none';
-    panel1.style.pointerEvents = opacityP1 > 0.5 ? 'auto' : 'none';
-    panel2.style.pointerEvents = opacityP2 > 0.5 ? 'auto' : 'none';
-    panel3.style.pointerEvents = opacityP3 > 0.5 ? 'auto' : 'none';
-
-    // Status display update
-    if (scrollPct < 0.25) {
-        sysStatus.innerText = "STANDBY · ORBIT 0";
-    } else if (scrollPct < 0.55) {
-        sysStatus.innerText = "SPECTRAL INGESTION";
-    } else if (scrollPct < 0.85) {
-        sysStatus.innerText = "SEGFORMER ROAD VISION";
-    } else {
-        sysStatus.innerText = "CRITICALITY GRAPH READY";
-    }
+    const sy=scrollDriver.scrollTop, maxS=scrollDriver.scrollHeight-window.innerHeight;
+    scrollPct=Math.max(0,Math.min(1,sy/(maxS||1)));
+    const ops=[Math.max(0,1-scrollPct/0.18),Math.max(0,Math.min(1,(scrollPct-0.22)/0.08))*Math.max(0,1-(scrollPct-0.48)/0.08),Math.max(0,Math.min(1,(scrollPct-0.52)/0.08))*Math.max(0,1-(scrollPct-0.78)/0.08),Math.max(0,Math.min(1,(scrollPct-0.82)/0.08))];
+    [panel0,panel1,panel2,panel3].forEach((p,i)=>{p.style.opacity=ops[i];p.style.pointerEvents=ops[i]>0.5?'auto':'none';});
+    if(scrollPct<0.25)sysStatus.innerText="STANDBY \u00B7 ORBIT 0";
+    else if(scrollPct<0.55)sysStatus.innerText="SPECTRAL INGESTION";
+    else if(scrollPct<0.85)sysStatus.innerText="SEGFORMER ROAD VISION";
+    else sysStatus.innerText="CRITICALITY GRAPH READY";
 });
 
 // ==========================================================================
-// 6. "ENTER CONSOLE" EXPERIENCE & TRANSITION TO DASHBOARD
+// 5. LANDING → DASHBOARD TRANSITION
 // ==========================================================================
-const btnEnterExperience = document.getElementById("btnEnterExperience");
-const landingView = document.getElementById("landingView");
-const dashboardView = document.getElementById("dashboardView");
-const telemetryDrawer = document.getElementById("telemetryDrawer");
-const telemetryStatus = document.getElementById("telemetryStatus");
-const telemetryLocation = document.getElementById("telemetryLocation");
-const telemetryCoordsRow = document.getElementById("telemetryCoordsRow");
-const telemetryCoords = document.getElementById("telemetryCoords");
-const telemetryProgressBar = document.getElementById("telemetryProgressBar");
-const btnBackToOrbit = document.getElementById("btnBackToOrbit");
+const landingView=document.getElementById("landingView"),dashboardView=document.getElementById("dashboardView");
+const telemetryDrawer=document.getElementById("telemetryDrawer"),telemetryStatus=document.getElementById("telemetryStatus");
+const telemetryLocation=document.getElementById("telemetryLocation"),telemetryCoordsRow=document.getElementById("telemetryCoordsRow");
+const telemetryCoords=document.getElementById("telemetryCoords"),telemetryProgressBar=document.getElementById("telemetryProgressBar");
 
-btnEnterExperience.addEventListener("click", () => {
-    if (isZooming) return;
-    isZooming = true;
-    btnEnterExperience.disabled = true;
-
-    telemetryDrawer.classList.add("active");
-    telemetryStatus.innerText = "SYNCHRONIZING ORBIT LINKS";
-    playChime(320, 0.4, 'triangle', 0.15);
-
-    // Geolocation detection
+document.getElementById("btnEnterExperience").addEventListener("click", () => {
+    if (isZooming) return; isZooming = true;
+    document.getElementById("btnEnterExperience").disabled = true;
+    telemetryDrawer.classList.add("active"); telemetryStatus.innerText="SYNCHRONIZING ORBIT LINKS"; playChime(320,0.4,'triangle',0.15);
     if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                telemetryCoords.innerText = `${lat.toFixed(5)}°N, ${lng.toFixed(5)}°E`;
-                telemetryCoordsRow.style.display = "flex";
-
-                try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                    const data = await res.json();
-                    const city = data.address.city || data.address.town || data.address.suburb || data.address.village || 'Detected Region';
-                    const country = data.address.country || 'Host GPS';
-                    telemetryLocation.innerText = `${city.toUpperCase()}, ${country.toUpperCase()}`;
-                } catch (_) {
-                    telemetryLocation.innerText = "GPS SIGNAL ONLINE";
-                }
-
-                telemetryStatus.innerText = "TARGET SECURED";
-                playChime(1000, 1.2, 'sine', 0.2);
-            },
-            () => {
-                telemetryCoords.innerText = "19.04400°N, 72.84200°E";
-                telemetryCoordsRow.style.display = "flex";
-                telemetryLocation.innerText = "MUMBAI, INDIA";
-                telemetryStatus.innerText = "FORCED FALLBACK GATEWAY";
-                playChime(420, 1.0, 'sawtooth', 0.1);
-            }
-        );
-    } else {
-        telemetryCoords.innerText = "19.04400°N, 72.84200°E";
-        telemetryCoordsRow.style.display = "flex";
-        telemetryLocation.innerText = "MUMBAI, INDIA";
-        telemetryStatus.innerText = "FALLBACK SECURED";
-    }
-
-    // Progress counter animation
-    let val = 0;
-    const progressTimer = setInterval(() => {
-        val += 2;
-        if (val >= 100) {
-            val = 100;
-            clearInterval(progressTimer);
-            setTimeout(() => {
-                // Smooth transition into dashboard
-                landingView.classList.add("landing-exit");
-                dashboardView.classList.remove("dashboard-hidden");
-                dashboardView.classList.add("dashboard-visible");
-            }, 750);
-        }
-        telemetryProgressBar.style.width = `${val}%`;
-    }, 40);
+        navigator.geolocation.getCurrentPosition(async pos => {
+            const lat=pos.coords.latitude, lng=pos.coords.longitude;
+            telemetryCoords.innerText=`${lat.toFixed(5)}\u00B0N, ${lng.toFixed(5)}\u00B0E`; telemetryCoordsRow.style.display="flex";
+            try { const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`),d=await r.json(); telemetryLocation.innerText=`${(d.address.city||d.address.town||d.address.suburb||'Region').toUpperCase()}, ${(d.address.country||'').toUpperCase()}`; } catch(_){ telemetryLocation.innerText="GPS SIGNAL ONLINE"; }
+            telemetryStatus.innerText="TARGET SECURED"; playChime(1000,1.2,'sine',0.2);
+        }, () => { telemetryCoords.innerText="19.04400\u00B0N, 72.84200\u00B0E"; telemetryCoordsRow.style.display="flex"; telemetryLocation.innerText="MUMBAI, INDIA"; telemetryStatus.innerText="FORCED FALLBACK GATEWAY"; playChime(420,1,'sawtooth',0.1); });
+    } else { telemetryCoords.innerText="19.04400\u00B0N, 72.84200\u00B0E"; telemetryCoordsRow.style.display="flex"; telemetryLocation.innerText="MUMBAI, INDIA"; telemetryStatus.innerText="FALLBACK SECURED"; }
+    let val=0; const pt=setInterval(()=>{ val+=2; if(val>=100){val=100;clearInterval(pt);setTimeout(()=>{ landingView.classList.add("landing-exit"); dashboardView.classList.remove("dashboard-hidden"); dashboardView.classList.add("dashboard-visible"); },750);} telemetryProgressBar.style.width=`${val}%`; }, 40);
 });
 
-// Back to Orbit View
-btnBackToOrbit.addEventListener("click", () => {
-    dashboardView.classList.remove("dashboard-visible");
-    dashboardView.classList.add("dashboard-hidden");
-
-    landingView.classList.remove("landing-exit");
-    isZooming = false;
-    currentCamZ.val = 10;
-    if (camera) camera.position.z = 10;
-    currentPos.set(0, 0, 0);
-    currentScale.val = 1.0;
-    btnEnterExperience.disabled = false;
-    telemetryDrawer.classList.remove("active");
-    telemetryProgressBar.style.width = "0%";
-    scrollDriver.scrollTop = 0;
+document.getElementById("btnBackToOrbit").addEventListener("click", () => {
+    dashboardView.classList.remove("dashboard-visible"); dashboardView.classList.add("dashboard-hidden");
+    landingView.classList.remove("landing-exit"); isZooming=false; currentCamZ.val=10; if(camera)camera.position.z=10;
+    currentPos.set(0,0,0); currentScale.val=1;
+    document.getElementById("btnEnterExperience").disabled=false;
+    telemetryDrawer.classList.remove("active"); telemetryProgressBar.style.width="0%"; scrollDriver.scrollTop=0;
 });
 
-// Share Button
 document.getElementById("shareBtn").addEventListener("click", () => {
-    if (navigator.share) {
-        navigator.share({
-            title: "SatQuery AI",
-            text: "AI-Powered Satellite Road Intelligence and Remote Sensing Copilot",
-            url: window.location.href
-        }).catch(() => {});
-    } else {
-        navigator.clipboard?.writeText(window.location.href);
-        alert("SatQuery AI link copied to clipboard!");
-    }
+    if(navigator.share){ navigator.share({title:"SatQuery AI",text:"AI-Powered Satellite Road Intelligence",url:window.location.href}).catch(()=>{}); }
+    else{ navigator.clipboard?.writeText(window.location.href); alert("Link copied!"); }
 });
 
+// ==========================================================================
+// 6. DASHBOARD STATE
+// ==========================================================================
+// ==========================================================================
+// 6. DASHBOARD STATE
+// ==========================================================================
+const API_URL = (window.location.port === "8000")
+    ? "/api"
+    : `${window.location.protocol}//${window.location.hostname || "localhost"}:8000/api`;
 
-// ==========================================================================
-// 7. SATQUERY AI INVESTIGATION DASHBOARD & CONSOLE LOGIC
-// ==========================================================================
-const API_URL = "http://localhost:8000/api";
+function getPreviewUrl(previewPath) {
+    if (!previewPath) return "";
+    if (previewPath.startsWith("http")) return previewPath;
+    const base = (window.location.port === "8000")
+        ? ""
+        : `${window.location.protocol}//${window.location.hostname || "localhost"}:8000`;
+    return base + previewPath;
+}
+
 let currentSessionId = "demo_session_" + Math.random().toString(36).substring(7);
 let lastResponse = null;
+let uploadedImages = [];      // [{file, dataUrl, name}]
+let pastedImageDataUrl = null;
+let sliderDragX = 50;
 
-// Dashboard Elements
-const queryForm = document.getElementById("queryForm");
-const queryInput = document.getElementById("queryInput");
-const chatMessages = document.getElementById("chatMessages");
-const traceSteps = document.getElementById("traceSteps");
-const finalConfidence = document.getElementById("finalConfidence");
-const sigHash = document.getElementById("sigHash");
-const sensorBadge = document.getElementById("sensorBadge");
-const modeBadge = document.getElementById("modeBadge");
-const dropzone = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
-const validationText = document.getElementById("validationText");
+// DOM refs
+const queryForm=document.getElementById("queryForm");
+const queryInput=document.getElementById("queryInput");
+const chatMessages=document.getElementById("chatMessages");
+const traceSteps=document.getElementById("traceSteps");
+const finalConfidence=document.getElementById("finalConfidence");
+const sigHash=document.getElementById("sigHash");
+const sensorBadge=document.getElementById("sensorBadge");
+const modeBadge=document.getElementById("modeBadge");
+const dropzone=document.getElementById("dropzone");
+const fileInput=document.getElementById("fileInput");
+const validationText=document.getElementById("validationText");
+const statusDot=document.getElementById("statusDot");
+const imageThumbnailsRow=document.getElementById("imageThumbnailsRow");
+const emptyMapState=document.getElementById("emptyMapState");
+const imageCanvas=document.getElementById("imageCanvas");
+const bboxOverlaySvg=document.getElementById("bboxOverlaySvg");
+const simulatedMap=document.getElementById("simulatedMap");
+const sliderView=document.getElementById("sliderView");
+const pastedImagePreview=document.getElementById("pastedImagePreview");
+const pastedImageEl=document.getElementById("pastedImageEl");
+const clearPastedImage=document.getElementById("clearPastedImage");
+const waterOverlay=document.getElementById("waterOverlay");
+const changeOverlay=document.getElementById("changeOverlay");
+const urbanOverlay=document.getElementById("urbanOverlay");
+const btnOverlay=document.getElementById("btnOverlay");
+const btnSlider=document.getElementById("btnSlider");
+const btnRawImage=document.getElementById("btnRawImage");
+let viewMode = "overlay";
 
-const waterOverlay = document.getElementById("waterOverlay");
-const changeOverlay = document.getElementById("changeOverlay");
-const urbanOverlay = document.getElementById("urbanOverlay");
+btnOverlay.addEventListener("click",()=>setViewMode("overlay"));
+btnSlider.addEventListener("click",()=>setViewMode("slider"));
+btnRawImage.addEventListener("click",()=>setViewMode("raw"));
 
-// Dropzone click
-dropzone.addEventListener("click", () => fileInput.click());
+function setViewMode(mode) {
+    viewMode = mode;
+    [btnOverlay,btnSlider,btnRawImage].forEach(b=>b.classList.remove("active"));
+    ({overlay:btnOverlay,slider:btnSlider,raw:btnRawImage})[mode].classList.add("active");
+    refreshMapView();
+}
 
-fileInput.addEventListener("change", async (e) => {
-    const files = e.target.files;
-    if (!files.length) return;
+// ==========================================================================
+// 7. MAP PANEL RENDERING
+// ==========================================================================
+function refreshMapView() {
+    const hasImg = uploadedImages.length > 0 || pastedImageDataUrl;
+    emptyMapState.style.display = hasImg ? "none" : "flex";
+    imageCanvas.style.display = "none"; bboxOverlaySvg.style.display = "none";
+    simulatedMap.style.display = "none"; sliderView.style.display = "none";
 
-    validationText.innerText = `Uploading and co-registering ${files.length} file(s)...`;
-    const formData = new FormData();
-    formData.append("session_id", currentSessionId);
-    for (let f of files) {
-        formData.append("files", f);
+    if (!hasImg) return;
+
+    if (viewMode === "slider" && uploadedImages.length >= 2) {
+        sliderView.style.display = "block";
+        initSlider(uploadedImages[0].dataUrl, uploadedImages[1].dataUrl);
+    } else if (viewMode === "raw") {
+        imageCanvas.style.display = "block";
+        renderImageOnCanvas(uploadedImages[0]?.dataUrl || pastedImageDataUrl, imageCanvas);
+    } else {
+        // Overlay mode: image + SVG bboxes
+        imageCanvas.style.display = "block"; bboxOverlaySvg.style.display = "block";
+        renderImageOnCanvas(uploadedImages[0]?.dataUrl || pastedImageDataUrl, imageCanvas);
+    }
+}
+
+function renderImageOnCanvas(dataUrl, canvas) {
+    if (!dataUrl || !canvas) return;
+    const img = new Image();
+    img.onload = () => {
+        const container = document.getElementById("mapContainer");
+        const cw = container.clientWidth || 600, ch = (container.clientHeight || 500) - 60;
+        const scale = Math.min(cw / img.width, ch / img.height, 1);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.style.maxWidth = "100%";
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Sync SVG overlay size
+        bboxOverlaySvg.setAttribute("width", canvas.width);
+        bboxOverlaySvg.setAttribute("height", canvas.height);
+        bboxOverlaySvg.style.position = "absolute";
+        bboxOverlaySvg.style.top = canvas.offsetTop + "px";
+        bboxOverlaySvg.style.left = canvas.offsetLeft + "px";
+        bboxOverlaySvg.style.width = canvas.width + "px";
+        bboxOverlaySvg.style.height = canvas.height + "px";
+    };
+    img.src = dataUrl;
+}
+
+function initSlider(url1, url2) {
+    const cv1 = document.getElementById("canvasT1"), cv2 = document.getElementById("canvasT2");
+    const handle = document.getElementById("sliderHandle");
+    const mask = document.getElementById("sliderMask");
+    const container = document.getElementById("mapContainer");
+    const cw = container.clientWidth || 600, ch = (container.clientHeight || 500) - 60;
+
+    function drawC(canvas, url) {
+        const img = new Image(); img.onload = () => { const s = Math.min(cw/img.width,ch/img.height,1); canvas.width=Math.round(img.width*s); canvas.height=Math.round(img.height*s); canvas.style.width=canvas.width+"px"; canvas.style.height=canvas.height+"px"; canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height); }; img.src = url;
+    }
+    drawC(cv1, url1); drawC(cv2, url2);
+
+    handle.style.left = sliderDragX + "%"; mask.style.width = sliderDragX + "%";
+    let dragging = false;
+    handle.onmousedown = e => { dragging = true; e.preventDefault(); };
+    document.onmousemove = e => { if (!dragging) return; const rect = sliderView.getBoundingClientRect(); let x = (e.clientX - rect.left) / rect.width * 100; x = Math.max(3, Math.min(97, x)); sliderDragX = x; handle.style.left = x + "%"; mask.style.width = x + "%"; };
+    document.onmouseup = () => dragging = false;
+}
+
+// ==========================================================================
+// 8. BOUNDING BOX & POLYGON SVG OVERLAY
+// ==========================================================================
+const BBOX_COLORS = ["#90e0ef","#ff7438","#22c55e","#f59e0b","#a78bfa","#fb7185","#34d399"];
+
+function drawBoundingBoxes(bboxes, features) {
+    bboxOverlaySvg.innerHTML = "";
+    const W = parseFloat(bboxOverlaySvg.getAttribute("width")) || imageCanvas.width || 600;
+    const H = parseFloat(bboxOverlaySvg.getAttribute("height")) || imageCanvas.height || 400;
+    const ns = "http://www.w3.org/2000/svg";
+
+    // Draw GeoJSON polygon features if available
+    if (features && features.length) {
+        features.forEach((feat, idx) => {
+            const geom = feat.geometry || {};
+            const coords = geom.coordinates || [];
+            if (geom.type === "Polygon" && coords.length) {
+                const pts = coords[0];
+                const pointsStr = pts.map(p => {
+                    const px = (0.0 <= p[0] && p[0] <= 1.0) ? p[0] * W : (p[0] % W);
+                    const py = (0.0 <= p[1] && p[1] <= 1.0) ? p[1] * H : (p[1] % H);
+                    return `${px},${py}`;
+                }).join(" ");
+                const poly = document.createElementNS(ns, "polygon");
+                poly.setAttribute("points", pointsStr);
+                poly.setAttribute("fill", "rgba(255, 116, 56, 0.25)");
+                poly.setAttribute("stroke", "#ff7438");
+                poly.setAttribute("stroke-width", "2");
+                bboxOverlaySvg.appendChild(poly);
+            }
+        });
     }
 
+    if (!bboxes || !bboxes.length) return;
+
+    bboxes.forEach((b, i) => {
+        const [ymin, xmin, ymax, xmax] = Array.isArray(b.box) ? b.box : [0.2,0.2,0.8,0.8];
+        const x = Math.max(0, xmin * W), y = Math.max(0, ymin * H);
+        const w = Math.min(W - x, (xmax - xmin) * W), h = Math.min(H - y, (ymax - ymin) * H);
+        const col = BBOX_COLORS[i % BBOX_COLORS.length];
+
+        // Animated rect
+        const rect = document.createElementNS(ns, "rect");
+        rect.setAttribute("x", x); rect.setAttribute("y", y); rect.setAttribute("width", w); rect.setAttribute("height", h);
+        rect.setAttribute("fill", "rgba(144, 224, 239, 0.08)"); rect.setAttribute("stroke", col); rect.setAttribute("stroke-width", "2");
+        rect.setAttribute("rx", "4"); rect.setAttribute("stroke-dasharray", "8,4");
+        rect.style.animation = "dashAnim 1s linear infinite";
+        bboxOverlaySvg.appendChild(rect);
+
+        // Corner dots
+        [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy]) => {
+            const dot = document.createElementNS(ns, "circle");
+            dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("r", "4");
+            dot.setAttribute("fill", col);
+            bboxOverlaySvg.appendChild(dot);
+        });
+
+        // Label background + text
+        const labelY = y > 24 ? y : y + h + 20;
+        const labelText = `${b.label || "Detection"} ${b.score ? (b.score * 100).toFixed(0) + "%" : ""}`;
+        const textWidth = Math.min(w - 4, labelText.length * 6.5 + 10);
+
+        const bgRect = document.createElementNS(ns, "rect");
+        bgRect.setAttribute("x", x); bgRect.setAttribute("y", labelY - 16); bgRect.setAttribute("width", Math.max(60, textWidth)); bgRect.setAttribute("height", "18");
+        bgRect.setAttribute("fill", col); bgRect.setAttribute("rx", "3"); bgRect.setAttribute("opacity", "0.9");
+        bboxOverlaySvg.appendChild(bgRect);
+
+        const txt = document.createElementNS(ns, "text");
+        txt.setAttribute("x", x + 5); txt.setAttribute("y", labelY - 3);
+        txt.setAttribute("font-size", "10"); txt.setAttribute("fill", "#030712");
+        txt.setAttribute("font-family", "DM Mono, monospace"); txt.setAttribute("font-weight", "700");
+        txt.textContent = labelText;
+        bboxOverlaySvg.appendChild(txt);
+    });
+}
+
+// ==========================================================================
+// 9. FILE UPLOAD & DEMO SCENARIOS
+// ==========================================================================
+dropzone.addEventListener("click", () => fileInput.click());
+dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+dropzone.addEventListener("drop", e => { e.preventDefault(); dropzone.classList.remove("drag-over"); if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files); });
+fileInput.addEventListener("change", e => { if (e.target.files.length) processFiles(e.target.files); });
+
+// Attach 1-Click Demo Scenarios
+["flood", "deforestation", "urban", "cartosat_sar"].forEach(scId => {
+    const btn = document.querySelector(`[data-scenario="${scId}"]`);
+    if (btn) btn.addEventListener("click", () => loadDemoScenario(scId));
+});
+
+async function loadDemoScenario(scenarioId) {
+    validationText.innerText = `Loading ISRO '${scenarioId}' scenario...`;
+    if (statusDot) { statusDot.style.background = "var(--warning)"; statusDot.style.boxShadow = "none"; }
+    document.querySelectorAll(".demo-btn").forEach(b => b.classList.add("loading"));
     try {
-        const res = await fetch(`${API_URL}/validate-inputs`, {
+        const res = await fetch(`${API_URL}/load-sample`, {
             method: "POST",
-            body: formData
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: currentSessionId, scenario_id: scenarioId })
         });
         const data = await res.json();
+        document.querySelectorAll(".demo-btn").forEach(b => b.classList.remove("loading"));
         if (data.valid) {
-            validationText.innerText = `Validated: Mode '${data.mode}' · ${data.images.length} raster(s) co-registered.`;
-            sensorBadge.innerText = data.mode === "optical_sar" ? "Cartosat-2S & RISAT Paired" : "ISRO Cartosat Standard";
+            uploadedImages = [];
+            imageThumbnailsRow.innerHTML = "";
+            data.images.forEach((imgMeta, idx) => {
+                const fullUrl = getPreviewUrl(imgMeta.preview_url);
+                uploadedImages.push({ name: imgMeta.filename, dataUrl: fullUrl, id: imgMeta.id });
+                addThumbnail(fullUrl, imgMeta.filename, idx);
+            });
+            imageThumbnailsRow.style.display = "flex";
+            validationText.innerText = `Loaded ${scenarioId.toUpperCase()} scenario (${data.mode}) · ${data.images.length} raster(s) ready.`;
+            if (statusDot) { statusDot.style.background = "var(--success)"; statusDot.style.boxShadow = "0 0 6px var(--success)"; }
+
+            if (data.mode === "optical_sar") sensorBadge.innerText = "Cartosat-2S & RISAT Paired";
+            else if (data.mode === "bi_temporal") sensorBadge.innerText = "Bi-Temporal Mode Active";
+            else sensorBadge.innerText = "ISRO Cartosat Standard";
+
+            if (data.mode === "bi_temporal") {
+                setViewMode("slider");
+                if (scenarioId === "flood") setPrompt("What changed between T1 and T2? Suppress seasonal pseudo-changes.");
+                else if (scenarioId === "deforestation") setPrompt("Detect forest loss and cleared vegetation between T1 and T2.");
+                else setPrompt("Identify physical surface changes between T1 and T2.");
+            } else if (data.mode === "optical_sar") {
+                setViewMode("overlay");
+                setPrompt("Assess ground inundation with SAR microwave penetration through cloud cover.");
+            } else {
+                setViewMode("overlay");
+                setPrompt("Describe the land cover and major objects visible in this image.");
+            }
+            refreshMapView();
         } else {
-            validationText.innerText = `Validation Error: ${data.errors.join(", ")}`;
+            validationText.innerText = `Error loading scenario: ${(data.errors || []).join(", ")}`;
         }
     } catch (err) {
-        validationText.innerText = `Simulated Ingestion: Loaded local test session (${files.length} rasters).`;
+        document.querySelectorAll(".demo-btn").forEach(b => b.classList.remove("loading"));
+        validationText.innerText = `Could not load demo scenario from backend.`;
+    }
+}
+
+// ==========================================================================
+// 10. PASTE IMAGE (Ctrl+V)
+// ==========================================================================
+document.addEventListener("paste", e => {
+    if (!dashboardView.classList.contains("dashboard-visible")) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+        if (item.type.startsWith("image/")) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = ev => {
+                pastedImageDataUrl = ev.target.result;
+                pastedImageEl.src = pastedImageDataUrl;
+                pastedImagePreview.style.display = "flex";
+                if (uploadedImages.length === 0) {
+                    uploadedImages = [{ file: blob, dataUrl: pastedImageDataUrl, name: "pasted_image.png" }];
+                    addThumbnail(pastedImageDataUrl, "pasted_image.png", 0);
+                    imageThumbnailsRow.style.display = "flex";
+                }
+                refreshMapView();
+                uploadToBackend([blob]);
+            };
+            reader.readAsDataURL(blob);
+            break;
+        }
     }
 });
 
-function setPrompt(promptText) {
-    queryInput.value = promptText;
-    queryForm.dispatchEvent(new Event("submit"));
-}
+clearPastedImage.addEventListener("click", () => { pastedImageDataUrl = null; pastedImagePreview.style.display = "none"; pastedImageEl.src = ""; });
 
-queryForm.addEventListener("submit", async (e) => {
+// ==========================================================================
+// 11. QUERY SUBMISSION
+// ==========================================================================
+function setPrompt(text) { queryInput.value = text; queryForm.dispatchEvent(new Event("submit")); }
+
+queryForm.addEventListener("submit", async e => {
     e.preventDefault();
-    const query = queryInput.value.trim();
-    if (!query) return;
-
+    const query = queryInput.value.trim(); if (!query) return;
     appendMessage(query, "user");
     queryInput.value = "";
-
-    // Reset visual overlays
-    waterOverlay.style.display = "none";
-    changeOverlay.style.display = "none";
-    urbanOverlay.style.display = "none";
-
+    bboxOverlaySvg.innerHTML = "";
+    waterOverlay.style.display="none"; changeOverlay.style.display="none"; urbanOverlay.style.display="none";
+    const loadId = "loading_" + Date.now();
+    appendLoading(loadId);
     try {
         const res = await fetch(`${API_URL}/query`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                session_id: currentSessionId,
-                query: query,
-                force_mode: "auto"
-            })
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: currentSessionId, query, force_mode: "auto" })
         });
-
-        if (!res.ok) throw new Error("Query API call failed");
-        const data = await res.json();
-        lastResponse = data;
-        renderResponse(data);
+        removeLoading(loadId);
+        if (!res.ok) throw new Error("API error " + res.status);
+        lastResponse = await res.json();
+        renderResponse(lastResponse);
     } catch (err) {
+        removeLoading(loadId);
         renderSimulatedResponse(query);
     }
 });
 
 function appendMessage(text, sender) {
-    const msgDiv = document.createElement("div");
-    msgDiv.className = `message ${sender}-message`;
-    msgDiv.innerHTML = `<strong>${sender === "user" ? "You" : "SatQuery AI"}:</strong> ${text}`;
-    chatMessages.appendChild(msgDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    const d = document.createElement("div"); d.className = `message ${sender}-message`;
+    d.innerHTML = `<strong>${sender === "user" ? "You" : "SatQuery AI"}:</strong> ${escapeHtml(text)}`;
+    chatMessages.appendChild(d); chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+function appendAIMessage(html) {
+    const d = document.createElement("div"); d.className = "message ai-message";
+    d.innerHTML = `<strong>SatQuery AI:</strong> ${html}`;
+    chatMessages.appendChild(d); chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+function appendLoading(id) {
+    const d = document.createElement("div"); d.className = "message ai-message"; d.id = id;
+    d.innerHTML = `<strong>SatQuery AI:</strong> <span class="thinking-dots"><span>&#9679;</span><span>&#9679;</span><span>&#9679;</span></span>`;
+    chatMessages.appendChild(d); chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+function removeLoading(id) { const el = document.getElementById(id); if (el) el.remove(); }
+function escapeHtml(t) { const d = document.createElement("div"); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
 
 function renderResponse(data) {
-    appendMessage(data.final_answer, "ai");
-
-    finalConfidence.innerText = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+    appendAIMessage(escapeHtml(data.final_answer || "Analysis complete."));
+    finalConfidence.innerText = `Confidence: ${((data.confidence || 0) * 100).toFixed(1)}%`;
     sigHash.innerText = data.run_signature_hash ? data.run_signature_hash.substring(0, 32) + "..." : "e3b0c442...";
-    modeBadge.innerText = `Mode: ${data.execution_mode.toUpperCase()}`;
-    sensorBadge.innerText = data.sensor_calibration_badge;
+    modeBadge.innerText = `Mode: ${(data.execution_mode || "heuristic").toUpperCase()}`;
+    if (data.sensor_calibration_badge) sensorBadge.innerText = data.sensor_calibration_badge;
 
-    // Render ReAct Trace Drawer
     traceSteps.innerHTML = "";
-    data.trace.forEach(step => {
-        const stepCard = document.createElement("div");
-        stepCard.className = "trace-step-card";
-        stepCard.innerHTML = `
-            <div class="trace-step-num">
-                <span>Step ${step.step_number}: ${step.tool_called}</span>
-                <span>${(step.step_confidence * 100).toFixed(0)}%</span>
-            </div>
-            <div class="why-box"><strong>Why this tool:</strong> ${step.why_this_tool}</div>
-            <div style="color:#94a3b8;"><strong>Observation:</strong> ${step.observation_summary}</div>
-        `;
-        traceSteps.appendChild(stepCard);
+    (data.trace || []).forEach(step => {
+        const card = document.createElement("div"); card.className = "trace-step-card";
+        card.innerHTML = `<div class="trace-step-num"><span>Step ${step.step_number}: ${step.tool_called}</span><span>${((step.step_confidence||0)*100).toFixed(0)}%</span></div><div class="why-box"><strong>Why this tool:</strong> ${escapeHtml(step.why_this_tool||"")}</div><div style="color:#94a3b8;font-size:11px;margin-top:4px;"><strong>Observation:</strong> ${escapeHtml(step.observation_summary||"")}</div>`;
+        traceSteps.appendChild(card);
     });
 
-    // Toggle Visual Overlays based on tool outputs
-    if (data.composite_overlays) {
-        if (data.final_answer.toLowerCase().includes("water") || data.final_answer.toLowerCase().includes("inundation")) {
-            waterOverlay.style.display = "block";
-        }
-        if (data.final_answer.toLowerCase().includes("change") || data.final_answer.toLowerCase().includes("expanded")) {
-            changeOverlay.style.display = "block";
-        }
-        if (data.final_answer.toLowerCase().includes("built-up") || data.final_answer.toLowerCase().includes("structure")) {
-            urbanOverlay.style.display = "block";
-        }
+    const hasRealImg = uploadedImages.length > 0 || pastedImageDataUrl;
+    // Collect all bboxes
+    let allBoxes = [];
+    if (data.composite_overlays?.bboxes?.length) allBoxes = data.composite_overlays.bboxes;
+    else {
+        (data.trace || []).forEach(step => { if (step.step_overlay?.bboxes) allBoxes = allBoxes.concat(step.step_overlay.bboxes); });
+    }
+
+    if (hasRealImg) {
+        drawBoundingBoxes(allBoxes, data.composite_overlays?.features);
+        bboxOverlaySvg.style.display = "block";
+    } else {
+        // Show simulated overlays
+        emptyMapState.style.display = "none"; simulatedMap.style.display = "flex";
+        const ans = (data.final_answer || "").toLowerCase();
+        if (ans.includes("water") || ans.includes("inundation")) waterOverlay.style.display = "block";
+        if (ans.includes("change") || ans.includes("expanded")) changeOverlay.style.display = "block";
+        if (ans.includes("built-up") || ans.includes("structure") || ans.includes("building")) urbanOverlay.style.display = "block";
     }
 }
 
 function renderSimulatedResponse(query) {
-    const qLower = query.toLowerCase();
-    let answer = "Comprehensive scene analysis: Identified agricultural and built-up land cover regions.";
-    let toolName = "vqa_grounding";
-    let why = "User requested visual inspection; dispatched single-image RS VLM.";
+    const qL = query.toLowerCase();
+    let answer, toolName, why;
+    let mockBoxes = [{ label: "Primary AOI", box: [0.20, 0.20, 0.75, 0.80], score: 0.86 }, { label: "Detection Zone", box: [0.35, 0.35, 0.65, 0.65], score: 0.79 }];
 
-    if (qLower.includes("change") || qLower.includes("t1") || qLower.includes("t2")) {
-        answer = "Detected 14.2% physical surface change (212,400 m²) between T1 and T2. Pseudo-change filter suppressed 1,420 noise pixels.";
-        toolName = "change_detection";
-        why = "User requested bi-temporal comparison; activated differential change detector with pseudo-change suppression.";
-        changeOverlay.style.display = "block";
-    } else if (qLower.includes("sar") || qLower.includes("cloud") || qLower.includes("radar")) {
-        answer = "Cross-modal optical–SAR reasoning complete. Estimated optical cloud cover: 42.1%. Microwave SAR backscatter (-14.2 dB) resolved ground inundation covering ~28.5% AOI.";
-        toolName = "optical_sar_fusion";
-        why = "Optical and SAR pairs detected; dispatched gated cross-modal specialist with cloud discounting.";
-        waterOverlay.style.display = "block";
+    if (qL.includes("change") || qL.includes("t1") || qL.includes("t2")) {
+        answer = "Detected 14.2% physical surface change (212,400 m\u00B2) between T1 and T2. Pseudo-change filter suppressed 1,420 noise pixels.";
+        toolName = "change_detection"; why = "Bi-temporal comparison requested; activated differential change detector.";
+        mockBoxes = [{ label: "Changed Area", box: [0.25, 0.25, 0.70, 0.72], score: 0.88 }];
+        if (!uploadedImages.length && !pastedImageDataUrl) { emptyMapState.style.display="none"; simulatedMap.style.display="flex"; changeOverlay.style.display="block"; }
+    } else if (qL.includes("sar") || qL.includes("cloud") || qL.includes("radar")) {
+        answer = "Cross-modal optical\u2013SAR reasoning complete. Estimated cloud cover: 42.1%. SAR backscatter (\u221214.2 dB) resolved inundation over ~28.5% AOI.";
+        toolName = "optical_sar_fusion"; why = "Optical+SAR pairs detected; dispatched gated cross-modal specialist.";
+        mockBoxes = [{ label: "Inundation Zone", box: [0.20, 0.30, 0.75, 0.75], score: 0.82 }];
+        if (!uploadedImages.length && !pastedImageDataUrl) { emptyMapState.style.display="none"; simulatedMap.style.display="flex"; waterOverlay.style.display="block"; }
+    } else if (qL.includes("water") || qL.includes("flood") || qL.includes("river") || qL.includes("lake")) {
+        answer = "Identified inland water bodies and reservoir regions. Strong NIR absorption boundaries detected.";
+        toolName = "vqa_grounding"; why = "Water/flood query detected; dispatched RS-adapted VLM.";
+        mockBoxes = [{ label: "Water Body", box: [0.25, 0.30, 0.65, 0.75], score: 0.85 }];
+        if (!uploadedImages.length && !pastedImageDataUrl) { emptyMapState.style.display="none"; simulatedMap.style.display="flex"; waterOverlay.style.display="block"; }
+    } else if (qL.includes("building") || qL.includes("urban") || qL.includes("structure") || qL.includes("road")) {
+        answer = "Detected high-density built-up structures and impervious surface clusters with transportation network overlays.";
+        toolName = "vqa_grounding"; why = "Urban/building query detected; dispatched RS-adapted VLM.";
+        mockBoxes = [{ label: "Built-up Cluster", box: [0.15, 0.20, 0.45, 0.60], score: 0.87 }, { label: "Infrastructure", box: [0.55, 0.50, 0.85, 0.80], score: 0.76 }];
+        if (!uploadedImages.length && !pastedImageDataUrl) { emptyMapState.style.display="none"; simulatedMap.style.display="flex"; urbanOverlay.style.display="block"; }
     } else {
-        urbanOverlay.style.display = "block";
+        answer = "Comprehensive scene analysis: Identified mixed land-use patterns including agricultural and built-up areas.";
+        toolName = "vqa_grounding"; why = "Single-image visual inspection requested; dispatched RS-adapted VLM.";
+        if (!uploadedImages.length && !pastedImageDataUrl) { emptyMapState.style.display="none"; simulatedMap.style.display="flex"; urbanOverlay.style.display="block"; }
     }
 
-    const mockData = {
-        final_answer: answer,
-        confidence: 0.86,
-        execution_mode: "real_model",
+    const mock = {
+        final_answer: answer, confidence: 0.86, execution_mode: "heuristic_fallback",
         sensor_calibration_badge: "Cartosat-2S & RISAT Calibrated",
-        run_signature_hash: "a4f8e219cb847291a039ff018247dbac82910482019482910481928471928471",
-        composite_overlays: { features: [] },
-        trace: [
-            {
-                step_number: 1,
-                tool_called: toolName,
-                why_this_tool: why,
-                observation_summary: answer,
-                step_confidence: 0.86
-            }
-        ]
+        run_signature_hash: "a4f8e219cb847291a039ff018247dbac82910482019482910481928471",
+        composite_overlays: { features: [], bboxes: mockBoxes },
+        trace: [{ step_number: 1, tool_called: toolName, why_this_tool: why, observation_summary: answer, step_confidence: 0.86 }]
     };
-    renderResponse(mockData);
+    renderResponse(mock);
 }
 
-// Export Buttons
-document.getElementById("btnExportPdf").addEventListener("click", () => {
-    window.open(`${API_URL}/export-report?session_id=${currentSessionId}&format=pdf`, "_blank");
-});
+// ==========================================================================
+// 12. EXPORT
+// ==========================================================================
+document.getElementById("btnExportPdf").addEventListener("click", () => window.open(`${API_URL}/export-report?session_id=${currentSessionId}&format=pdf`, "_blank"));
+document.getElementById("btnExportGeoJson").addEventListener("click", () => window.open(`${API_URL}/export-report?session_id=${currentSessionId}&format=geojson`, "_blank"));
 
-document.getElementById("btnExportGeoJson").addEventListener("click", () => {
-    window.open(`${API_URL}/export-report?session_id=${currentSessionId}&format=geojson`, "_blank");
-});
-
-// Initialize 3D Globe on DOM Ready
-document.addEventListener("DOMContentLoaded", () => {
-    initThreeGlobe();
-});
+// ==========================================================================
+// 13. INIT ON DOM READY
+// ==========================================================================
+document.addEventListener("DOMContentLoaded", () => { initThreeGlobe(); });

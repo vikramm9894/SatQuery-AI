@@ -53,7 +53,7 @@ class InputValidator:
 
         return sensor_type, timestamp
 
-    def inspect_file(self, file_path: Path, image_id: str) -> tuple[ImageMeta | None, list[str], list[str]]:
+    def inspect_file(self, file_path: Path, image_id: str, session_id: str | None = None) -> tuple[ImageMeta | None, list[str], list[str]]:
         warnings: list[str] = []
         errors: list[str] = []
 
@@ -74,7 +74,9 @@ class InputValidator:
                     warnings.append(f"Image {file_path.name} missing embedded CRS. Defaulting to EPSG:4326.")
                     crs_str = settings.DEFAULT_CRS
 
-                bounds = [ds.bounds.left, ds.bounds.bottom, ds.bounds.right, ds.bounds.top]
+                left, bottom, right, top = ds.bounds.left, ds.bounds.bottom, ds.bounds.right, ds.bounds.top
+                # Sanitize bounds so minx <= maxx and miny <= maxy
+                bounds = [min(left, right), min(bottom, top), max(left, right), max(bottom, top)]
                 res_x, res_y = ds.res
                 res_m = float((abs(res_x) + abs(res_y)) / 2.0)
                 
@@ -84,6 +86,15 @@ class InputValidator:
 
                 sensor_type, timestamp = self.infer_sensor_type_and_time(file_path.name, ds)
                 checksum = self.compute_sha256(file_path)
+
+                # Generate preview URL if session_id provided
+                preview_url = None
+                if session_id:
+                    preview_dir = settings.BASE_DIR / "storage" / "previews" / session_id
+                    preview_dir.mkdir(parents=True, exist_ok=True)
+                    preview_file = preview_dir / f"{image_id}.png"
+                    self.generate_preview_png(file_path, preview_file)
+                    preview_url = f"/api/session/{session_id}/preview/{image_id}"
 
                 meta = ImageMeta(
                     id=image_id,
@@ -96,11 +107,63 @@ class InputValidator:
                     bands=ds.count,
                     sensor_type=sensor_type, # type: ignore
                     timestamp=timestamp,
-                    checksum_sha256=checksum
+                    checksum_sha256=checksum,
+                    preview_url=preview_url
                 )
                 return meta, warnings, errors
         except Exception as e:
             return None, warnings, [f"Malformed or unsupported raster {file_path.name}: {e!s}"]
+
+    def generate_preview_png(self, file_path: Path, output_path: Path) -> Path:
+        """Generates an 8-bit RGB normalized PNG preview for any raster/TIFF/SAR format."""
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            from PIL import Image
+            with open_raster(file_path) as ds:
+                count = ds.count
+                if count >= 3:
+                    try:
+                        data = ds.read([1, 2, 3]).astype(np.float32)
+                    except Exception:
+                        b = ds.read(1).astype(np.float32)
+                        data = np.stack([b, b, b], axis=0)
+                    rgb = np.zeros((data.shape[1], data.shape[2], 3), dtype=np.uint8)
+                    for c in range(3):
+                        ch = data[c]
+                        p2, p98 = float(np.percentile(ch, 2)), float(np.percentile(ch, 98))
+                        if p98 > p2:
+                            ch_clipped = np.clip((ch - p2) / (p98 - p2) * 255.0, 0, 255)
+                        else:
+                            ch_clipped = np.clip(ch, 0, 255)
+                        rgb[:, :, c] = ch_clipped.astype(np.uint8)
+                else:
+                    ch = ds.read(1).astype(np.float32)
+                    p2, p98 = float(np.percentile(ch, 2)), float(np.percentile(ch, 98))
+                    if p98 > p2:
+                        ch_clipped = np.clip((ch - p2) / (p98 - p2) * 255.0, 0, 255)
+                    else:
+                        ch_clipped = np.clip(ch, 0, 255)
+                    gray = ch_clipped.astype(np.uint8)
+                    rgb = np.stack([gray, gray, gray], axis=-1)
+
+                img = Image.fromarray(rgb)
+                max_dim = 1024
+                if max(img.width, img.height) > max_dim:
+                    img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                img.save(output_path, "PNG")
+                return output_path
+        except Exception:
+            try:
+                from PIL import Image
+                img = Image.open(file_path).convert("RGB")
+                img.save(output_path, "PNG")
+                return output_path
+            except Exception:
+                # Synthetic fallback
+                from PIL import Image
+                img = Image.new("RGB", (256, 256), color=(40, 80, 120))
+                img.save(output_path, "PNG")
+                return output_path
 
     def align_and_coregister_pair(
         self,
@@ -142,14 +205,21 @@ class InputValidator:
             profile1 = src1.profile.copy()
             profile2 = src2.profile.copy()
             
-            # Destination profile matches src1 grid
+            # Destination profile matches src1 grid with GTiff driver
+            profile1.update({'driver': 'GTiff'})
+            for opt in ['blockxsize', 'blockysize', 'interleave', 'tiled']:
+                profile1.pop(opt, None)
+
             dest_profile = profile2.copy()
             dest_profile.update({
+                'driver': 'GTiff',
                 'crs': target_crs,
                 'transform': src1.transform,
                 'width': src1.width,
                 'height': src1.height
             })
+            for opt in ['blockxsize', 'blockysize', 'interleave', 'tiled']:
+                dest_profile.pop(opt, None)
 
             # Save img1 copy or link
             data1 = src1.read()
@@ -210,7 +280,7 @@ class InputValidator:
             )
 
         for i, fp in enumerate(file_paths):
-            meta, w, e = self.inspect_file(fp, image_id=f"img_{i+1}")
+            meta, w, e = self.inspect_file(fp, image_id=f"img_{i+1}", session_id=session_id)
             warnings.extend(w)
             errors.extend(e)
             if meta:

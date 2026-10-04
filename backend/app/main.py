@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.schemas import (
+    DemoScenarioRequest,
     ExportReportRequest,
     QueryRequest,
     QueryResponse,
@@ -76,6 +77,85 @@ async def validate_inputs(
     session_manager.create_or_update_session(sid, result)
     return result
 
+@app.get("/api/session/{session_id}/preview/{image_id}")
+def get_image_preview(session_id: str, image_id: str):
+    """
+    Returns an 8-bit normalized PNG preview for any uploaded/session raster.
+    """
+    preview_file = settings.BASE_DIR / "storage" / "previews" / session_id / f"{image_id}.png"
+    if not preview_file.exists():
+        # Check if corresponding upload exists
+        uploads_dir = settings.UPLOADS_DIR / session_id
+        session = session_manager.get_session(session_id)
+        val = session.get("validation", {}) if session else {}
+        matched_file = None
+        for img in val.get("images", []):
+            if img.get("id") == image_id:
+                fn = img.get("filename")
+                if fn and (uploads_dir / fn).exists():
+                    matched_file = uploads_dir / fn
+                    break
+        if not matched_file:
+            all_files = list(uploads_dir.glob("*.*"))
+            if all_files:
+                matched_file = all_files[0]
+
+        if matched_file:
+            input_validator.generate_preview_png(matched_file, preview_file)
+
+    if preview_file.exists():
+        return FileResponse(preview_file, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Preview not found.")
+
+@app.post("/api/load-sample", response_model=ValidationResult)
+def load_sample_scenario(request: DemoScenarioRequest):
+    """
+    Loads a pre-packaged ISRO Earth-observation scenario into the active session.
+    """
+    import shutil
+    sid = request.session_id
+    session_dir = session_manager.get_session_dir(sid, "uploads")
+    root_dir = settings.BASE_DIR.parent
+    demo_dir = root_dir / "demo_data"
+    sample_dir = settings.BASE_DIR / "sample_data"
+
+    pairs: list[tuple[Path, str]] = []
+    if request.scenario_id == "flood":
+        src = demo_dir / "flood"
+        if src.exists():
+            pairs = [(src / "T1.tif", "T1_flood_optical.tif"), (src / "T2.tif", "T2_flood_optical.tif")]
+    elif request.scenario_id == "deforestation":
+        src = demo_dir / "deforestation"
+        if src.exists():
+            pairs = [(src / "T1.tif", "T1_forest_optical.tif"), (src / "T2.tif", "T2_forest_cleared.tif")]
+    elif request.scenario_id == "urban":
+        src = demo_dir / "urban"
+        if src.exists():
+            pairs = [(src / "T1.tif", "T1_urban_pre.tif"), (src / "T2.tif", "T2_urban_post.tif")]
+    elif request.scenario_id == "cartosat_sar":
+        pairs = [
+            (sample_dir / "cartosat2s_optical_20240901.tif", "cartosat2s_optical.tif"),
+            (sample_dir / "risat1a_sar_20240901.tif", "risat1a_sar.tif")
+        ]
+
+    if not pairs or not all(p[0].exists() for p in pairs):
+        # Fallback to backend sample data
+        pairs = [
+            (sample_dir / "cartosat2s_optical_20240301.tif", "cartosat2s_t1.tif"),
+            (sample_dir / "cartosat2s_optical_20240901.tif", "cartosat2s_t2.tif")
+        ]
+
+    saved_paths: list[Path] = []
+    for src_path, target_name in pairs:
+        if src_path.exists():
+            dest = session_dir / target_name
+            shutil.copy(src_path, dest)
+            saved_paths.append(dest)
+
+    result = input_validator.validate_session_inputs(sid, saved_paths)
+    session_manager.create_or_update_session(sid, result)
+    return result
+
 @app.post("/api/query", response_model=QueryResponse)
 def execute_query(request: QueryRequest):
     """
@@ -118,3 +198,9 @@ def cleanup_storage(background_tasks: BackgroundTasks):
     """Purges expired sessions past their sliding TTL."""
     cleaned = session_manager.cleanup_expired_sessions()
     return {"status": "success", "sessions_evicted": cleaned}
+
+from fastapi.staticfiles import StaticFiles
+_frontend_dir = settings.BASE_DIR.parent / "frontend"
+if _frontend_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
+

@@ -133,15 +133,30 @@ class ReActAgent:
         aligned_dir = settings.ALIGNED_DIR / request.session_id
         uploads_dir = settings.UPLOADS_DIR / request.session_id
         
-        # Check aligned files first, fallback to uploads
-        aligned_files = sorted(list(aligned_dir.glob("aligned_*.tif")))
-        if len(aligned_files) >= 2:
-            image_paths = aligned_files
-        else:
-            image_paths = sorted(list(uploads_dir.glob("*.tif")) + list(uploads_dir.glob("*.tiff")))
+        image_paths: list[Path] = []
+        # 1. Prefer images explicitly recorded in session validation metadata
+        if validation_data and validation_data.get("images"):
+            for img_info in validation_data["images"]:
+                fname = img_info.get("filename")
+                if fname:
+                    p = uploads_dir / fname
+                    if p.exists():
+                        image_paths.append(p)
 
+        # 2. Check aligned files if bi-temporal or optical-sar alignment was generated
         if not image_paths:
-            # Fallback if testing without uploads: use sample_data
+            aligned_files = sorted(list(aligned_dir.glob("aligned_*.tif")) + list(aligned_dir.glob("aligned_*.tiff")))
+            if len(aligned_files) >= 2:
+                image_paths = aligned_files
+
+        # 3. Glob all standard raster/image formats in uploads_dir
+        if not image_paths and uploads_dir.exists():
+            for ext in ("*.tif", "*.tiff", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp"):
+                image_paths.extend(uploads_dir.glob(ext))
+            image_paths = sorted(list(set(image_paths)))
+
+        # 4. Fallback to sample_data
+        if not image_paths:
             sample_dir = settings.BASE_DIR / "sample_data"
             sample_files = sorted(list(sample_dir.glob("*.tif")) + list(sample_dir.glob("*.tiff")))
             image_paths = sample_files if sample_files else [Path("sample_placeholder.tif")]
@@ -165,14 +180,41 @@ class ReActAgent:
             model_versions[tool_name] = output.model_version
             all_metrics.update(output.metrics)
 
-            # Extract step geometry overlay
-            step_overlay = None
+            # Extract step geometry overlay (preserving both bboxes and GeoJSON masks)
+            step_overlay: dict[str, Any] = {}
+            if output.bboxes:
+                step_bboxes = [bb.model_dump() for bb in output.bboxes]
+                composite_bboxes.extend(step_bboxes)
+                step_overlay["bboxes"] = step_bboxes
+
             if output.mask_geojson:
-                step_overlay = output.mask_geojson
-                composite_features.extend(output.mask_geojson.get("features", []))
-            elif output.bboxes:
-                step_overlay = {"bboxes": [bb.model_dump() for bb in output.bboxes]}
-                composite_bboxes.extend([bb.model_dump() for bb in output.bboxes])
+                features = output.mask_geojson.get("features", [])
+                composite_features.extend(features)
+                step_overlay["mask_geojson"] = output.mask_geojson
+
+                # Synthesize bounding boxes from feature polygons if tool didn't emit explicit bboxes
+                if not output.bboxes and features:
+                    for feat in features[:10]:
+                        geom = feat.get("geometry", {})
+                        coords = geom.get("coordinates", [])
+                        props = feat.get("properties", {})
+                        label = props.get("change_type") or props.get("label") or "Detected Change"
+                        if geom.get("type") == "Polygon" and coords:
+                            pts = coords[0]
+                            xs = [p[0] for p in pts if len(p) >= 2]
+                            ys = [p[1] for p in pts if len(p) >= 2]
+                            if xs and ys:
+                                min_x, max_x = min(xs), max(xs)
+                                min_y, max_y = min(ys), max(ys)
+                                if 0.0 <= min_x <= 1.0 and 0.0 <= max_x <= 1.0:
+                                    box_coords = [round(min_y, 4), round(min_x, 4), round(max_y, 4), round(max_x, 4)]
+                                else:
+                                    box_coords = [0.25, 0.25, 0.75, 0.75]
+                                syn_box = {"label": str(label).replace("_", " ").title(), "box": box_coords, "score": output.confidence}
+                                composite_bboxes.append(syn_box)
+                                if "bboxes" not in step_overlay:
+                                    step_overlay["bboxes"] = []
+                                step_overlay["bboxes"].append(syn_box)
 
             trace_steps.append(AgentTraceStep(
                 step_number=step_idx,

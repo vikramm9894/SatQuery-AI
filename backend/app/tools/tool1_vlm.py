@@ -129,6 +129,8 @@ class VLMGroundingTool(BaseSpecialistTool):
         is_water_query = any(w in query.lower() for w in ["water", "river", "lake", "flood", "pond"])
         is_urban_query = any(w in query.lower() for w in ["building", "urban", "city", "house", "settlement", "structure"])
         is_veg_query = any(w in query.lower() for w in ["forest", "tree", "vegetation", "farm", "crop", "green"])
+        is_road_query = any(w in query.lower() for w in ["road", "highway", "transportation", "route", "track", "lane"])
+        is_vessel_query = any(w in query.lower() for w in ["ship", "boat", "vessel", "port", "harbor", "maritime"])
 
         if capability == "captioning":
             answer = backend_result.get("scene_description", "Comprehensive Earth-observation scene description.")
@@ -152,6 +154,13 @@ class VLMGroundingTool(BaseSpecialistTool):
             answer = f"Detected high-density built-up structures and impervious surface clusters corresponding to RS taxonomy [{', '.join(rs_terms)}]."
             bboxes.append(BoundingBox(label="Built-up Cluster", box=[0.15, 0.20, 0.45, 0.60], score=calibrated_score))
             bboxes.append(BoundingBox(label="Infrastructure", box=[0.55, 0.50, 0.85, 0.80], score=round(calibrated_score - 0.07, 2)))
+        elif is_road_query:
+            answer = f"Detected transportation network and road corridors corresponding to RS taxonomy [{', '.join(rs_terms)}]. Continuous linear features identified."
+            bboxes.append(BoundingBox(label="Road Corridor", box=[0.18, 0.10, 0.42, 0.90], score=calibrated_score))
+            bboxes.append(BoundingBox(label="Highway Arterial", box=[0.50, 0.15, 0.78, 0.85], score=round(calibrated_score - 0.05, 2)))
+        elif is_vessel_query:
+            answer = f"Detected maritime vessels and port infrastructure with distinct metallic radar/optical reflectance signatures."
+            bboxes.append(BoundingBox(label="Vessel Detection", box=[0.30, 0.40, 0.45, 0.58], score=calibrated_score))
         elif is_veg_query:
             answer = "Identified contiguous dense canopy and agricultural cropland regions consistent with standard NDVI reflectance."
             bboxes.append(BoundingBox(label="Dense Canopy", box=[0.10, 0.10, 0.50, 0.45], score=calibrated_score))

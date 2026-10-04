@@ -39,7 +39,11 @@ backend/storage/aligned/*
 !backend/storage/aligned/.gitkeep
 backend/storage/exports/*
 !backend/storage/exports/.gitkeep
+backend/storage/previews/*
+!backend/storage/previews/.gitkeep
+backend/storage/*.db
 demo_data/*/output/
+test_image.png
 
 # OS Specific
 .DS_Store

@@ -191,3 +191,87 @@ class RunManifest(BaseModel):
     provenance: Dict[str, Any] = Field(
         ..., description="Hashes of input rasters, query, model checkpoints, parameters, and output GeoJSON"
     )
+
+
+# ---------------------------------------------------------------------------
+# 7. Evidence, Findings, Physics Validation & Scientific Verdict
+# ---------------------------------------------------------------------------
+
+class PhysicsValidationResult(BaseModel):
+    """Deterministic physical validation assessment for a candidate finding."""
+    status: Literal["passed", "uncertain", "rejected"]
+    physics_passed: bool
+    spectral_checks: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Checks on NDVI, NDWI, NDBI, EVI, RVI, or SAR dB backscatter"
+    )
+    spatial_checks: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Minimum area filter, boundary checks, geometry sanity"
+    )
+    temporal_checks: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Temporal ordering, delta direction plausibility"
+    )
+    contradictions: List[str] = Field(default_factory=list)
+    reason: str
+
+
+class ScientificVerdict(BaseModel):
+    """Final scientific arbitration verdict on an AI claim."""
+    verdict: Literal["confirmed", "probable", "uncertain", "rejected", "target_not_found"]
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    supporting_evidence: List[str] = Field(default_factory=list)
+    contradicting_evidence: List[str] = Field(default_factory=list)
+    reason: str
+
+
+class ExplainableConfidence(BaseModel):
+    """Explainable composite confidence score with 5-component decomposition."""
+    score: float = Field(..., ge=0.0, le=1.0)
+    label: Literal["HIGH", "MEDIUM", "LOW", "VERY_LOW"]
+    components: Dict[str, float] = Field(
+        ...,
+        description="Component scores: model, physics, spatial, temporal, sensor_agreement"
+    )
+    explanation: str
+
+
+class EvidenceRecord(BaseModel):
+    """
+    Immutable, tamper-evident evidence linking every claim to physical raster data.
+    """
+    evidence_id: str
+    finding_id: str
+    source_asset_id: str
+    workflow: str
+    agent: str
+    model: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    geometry: Optional[Dict[str, Any]] = None
+    source_region_bbox: Optional[List[float]] = None
+    physics_checks: Dict[str, Any] = Field(default_factory=dict)
+    tool_calls: List[str] = Field(default_factory=list)
+    timestamp: float
+
+
+class FindingRecord(BaseModel):
+    """
+    Structured geospatial finding emitted by the multi-agent pipeline.
+    """
+    finding_id: str
+    label: str
+    verdict: Literal["confirmed", "probable", "uncertain", "rejected", "target_not_found"]
+    confidence: ExplainableConfidence
+    pixel_bbox: Optional[List[float]] = None
+    native_geometry: Optional[Dict[str, Any]] = None
+    wgs84_geometry: Optional[Dict[str, Any]] = None
+    area_m2: float = 0.0
+    area_ha: float = 0.0
+    area_km2: float = 0.0
+    area_acres: float = 0.0
+    pct_scene: float = 0.0
+    evidence_records: List[EvidenceRecord] = Field(default_factory=list)
+    explanation: str
+    source_assets: List[str] = Field(default_factory=list)
+    timestamp: float
