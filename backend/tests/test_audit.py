@@ -27,3 +27,25 @@ def test_pdf_report_and_geojson_generation():
     assert geojson_path.exists()
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 1000
+
+def test_export_report_api_endpoints():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    # Test GET export-report (direct download)
+    resp_pdf = client.get("/api/export-report?session_id=api_test_sess&format=pdf")
+    assert resp_pdf.status_code == 200
+    assert resp_pdf.headers["content-type"] == "application/pdf"
+    assert len(resp_pdf.content) > 1000
+
+    resp_geo = client.get("/api/export-report?session_id=api_test_sess&format=geojson")
+    assert resp_geo.status_code == 200
+    assert "geo+json" in resp_geo.headers["content-type"]
+
+    resp_md = client.get("/api/export-report?session_id=api_test_sess&format=markdown")
+    assert resp_md.status_code == 200
+    assert "markdown" in resp_md.headers["content-type"]
+    assert b"SATQUERY AI" in resp_md.content
+

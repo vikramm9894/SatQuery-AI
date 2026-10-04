@@ -121,8 +121,55 @@ function initThreeGlobe() {
     tl.load('textures/earth_specular.jpg', t => { earthMesh.material.roughnessMap = t; earthMesh.material.needsUpdate = true; });
     tl.load('textures/earth_clouds.png', t => { cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(3.02, 64, 64), new THREE.MeshStandardMaterial({ map: t, transparent: true, opacity: 0.35, blending: THREE.NormalBlending })); scene.add(cloudMesh); });
     scene.add(new THREE.Mesh(new THREE.SphereGeometry(3.28, 64, 64), new THREE.ShaderMaterial({ vertexShader: `varying vec3 vNormal;void main(){vNormal=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`, fragmentShader: `varying vec3 vNormal;void main(){float i=pow(0.72-dot(vNormal,vec3(0,0,1)),2.8);gl_FragColor=vec4(0.56,0.88,0.94,1)*i;}`, blending: THREE.AdditiveBlending, side: THREE.BackSide, transparent: true })));
-    const hpGeo = new THREE.SphereGeometry(0.045, 16, 16), hpMat = new THREE.MeshBasicMaterial({ color: 0xff7438 });
-    [{lat:19.076,lon:72.877},{lat:51.507,lon:-0.127},{lat:40.712,lon:-74.006},{lat:35.676,lon:139.65}].forEach(c => { const m = new THREE.Mesh(hpGeo, hpMat), r = 3.015, rl = c.lat*Math.PI/180, rlo = c.lon*Math.PI/180; m.position.set(r*Math.cos(rl)*Math.sin(rlo), r*Math.sin(rl), r*Math.cos(rl)*Math.cos(rlo)); earthMesh.add(m); });
+    // Hotspot landmark pins on Earth
+    const hpGeo = new THREE.SphereGeometry(0.045, 16, 16);
+    const landmarkPins = [
+        { lat: 13.719, lon: 80.230, color: 0x22c55e }, // ISRO Sriharikota
+        { lat: 17.456, lon: 78.448, color: 0x38bdf8 }, // NRSC Hyderabad
+        { lat: 19.076, lon: 72.877, color: 0xf59e0b }, // Mumbai Coast
+        { lat: 28.613, lon: 77.209, color: 0xec4899 }, // New Delhi
+        { lat: 12.971, lon: 77.594, color: 0x06b6d4 }, // ISRO HQ Bengaluru
+        { lat: 51.507, lon: -0.127, color: 0x94a3b8 }, // London
+        { lat: 40.712, lon: -74.006, color: 0x94a3b8 } // New York
+    ];
+    landmarkPins.forEach(c => {
+        const pinMat = new THREE.MeshBasicMaterial({ color: c.color });
+        const m = new THREE.Mesh(hpGeo, pinMat);
+        const r = 3.015, rl = c.lat * Math.PI / 180, rlo = c.lon * Math.PI / 180;
+        m.position.set(r * Math.cos(rl) * Math.sin(rlo), r * Math.sin(rl), r * Math.cos(rl) * Math.cos(rlo));
+        earthMesh.add(m);
+    });
+
+    // Satellite Orbital Ring
+    const orbitRadius = 4.2;
+    const orbitPoints = [];
+    for (let i = 0; i <= 128; i++) {
+        const theta = (i / 128) * Math.PI * 2;
+        orbitPoints.push(new THREE.Vector3(orbitRadius * Math.cos(theta), 0, orbitRadius * Math.sin(theta)));
+    }
+    const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+    const orbitMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 });
+    const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+    orbitLine.rotation.x = Math.PI / 4;
+    orbitLine.rotation.z = Math.PI / 6;
+    scene.add(orbitLine);
+
+    // Active Satellite Beacon (Cartosat-2S Simulation)
+    const satGroup = new THREE.Group();
+    const satBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14, 0.08, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0xdbeafe, metalness: 0.8, roughness: 0.2 })
+    );
+    const panelGeo = new THREE.BoxGeometry(0.24, 0.01, 0.08);
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0284c7, emissiveIntensity: 0.6 });
+    const leftPanel = new THREE.Mesh(panelGeo, panelMat);
+    leftPanel.position.x = -0.19;
+    const rightPanel = new THREE.Mesh(panelGeo, panelMat);
+    rightPanel.position.x = 0.19;
+    satGroup.add(satBody); satGroup.add(leftPanel); satGroup.add(rightPanel);
+    scene.add(satGroup);
+    let satAngle = 0;
+
     let isDragging = false, prevX = 0, prevY = 0;
     globeMount.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
     window.addEventListener('mousemove', e => { if (!isDragging) return; earthMesh.rotation.y += (e.clientX-prevX)*0.003; earthMesh.rotation.x += (e.clientY-prevY)*0.003; if(cloudMesh){cloudMesh.rotation.y+=(e.clientX-prevX)*0.003;cloudMesh.rotation.x+=(e.clientY-prevY)*0.003;} prevX=e.clientX; prevY=e.clientY; });
@@ -142,6 +189,15 @@ function initThreeGlobe() {
         if(cloudMesh){cloudMesh.position.x=currentPos.x;cloudMesh.scale.setScalar(currentScale.val*1.006);}
         if(!isDragging){earthMesh.rotation.y+=0.0012;if(cloudMesh)cloudMesh.rotation.y+=0.0016;}
         if(isZooming){currentCamZ.val+=(1.4-currentCamZ.val)*0.035;camera.position.z=currentCamZ.val;}
+
+        // Orbit satellite position
+        satAngle += 0.012;
+        const satPos = new THREE.Vector3(orbitRadius * Math.cos(satAngle), 0, orbitRadius * Math.sin(satAngle));
+        satPos.applyAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 4);
+        satPos.applyAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 6);
+        satGroup.position.copy(satPos);
+        satGroup.rotation.y += 0.02;
+
         renderer.render(scene, camera);
     })();
     window.addEventListener('resize', () => { const w=globeMount.clientWidth||window.innerWidth,h=globeMount.clientHeight||window.innerHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); });
