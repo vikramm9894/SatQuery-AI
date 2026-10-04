@@ -1,5 +1,14 @@
+import sys
 import uuid
 from pathlib import Path
+
+# Ensure both backend/ and project root are dynamically added to sys.path
+_current_file = Path(__file__).resolve()
+_backend_dir = _current_file.parent.parent
+_root_dir = _backend_dir.parent
+for _p in [str(_backend_dir), str(_root_dir)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware

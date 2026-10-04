@@ -41,9 +41,10 @@ backend/storage/exports/*
 !backend/storage/exports/.gitkeep
 backend/storage/previews/*
 !backend/storage/previews/.gitkeep
-backend/storage/*.db
-storage/*.db
-*.db
+backend/storage/*.db*
+storage/*.db*
+*.db*
+*.sqlite*
 storage/*
 !storage/.gitkeep
 demo_data/*/output/
